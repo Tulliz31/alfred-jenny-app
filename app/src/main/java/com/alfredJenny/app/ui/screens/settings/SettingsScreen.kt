@@ -28,8 +28,9 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var providerDropdownExpanded by remember { mutableStateOf(false) }
-    var showApiKey by remember { mutableStateOf(false) }
+    var providerExpanded by remember { mutableStateOf(false) }
+    var showAiKey by remember { mutableStateOf(false) }
+    var showElevenKey by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -47,15 +48,8 @@ fun SettingsScreen(
             IconButton(onClick = onBack) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Indietro", tint = OnBackground)
             }
-            Text(
-                "Impostazioni",
-                style = MaterialTheme.typography.titleLarge,
-                color = OnBackground,
-                modifier = Modifier.weight(1f)
-            )
-            if (state.isSaved) {
-                Icon(Icons.Default.Check, contentDescription = "Salvato", tint = SuccessGreen)
-            }
+            Text("Impostazioni", style = MaterialTheme.typography.titleLarge, color = OnBackground, modifier = Modifier.weight(1f))
+            if (state.isSaved) Icon(Icons.Default.Check, contentDescription = "Salvato", tint = SuccessGreen)
         }
 
         Column(
@@ -63,91 +57,95 @@ fun SettingsScreen(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             // ── Backend URL ───────────────────────────────────────────────────
-            SectionLabel("URL Backend")
-
+            SectionLabel("Backend")
             OutlinedTextField(
                 value = state.preferences.baseUrl,
                 onValueChange = viewModel::onBaseUrlChange,
-                label = { Text("Indirizzo server") },
+                label = { Text("URL server") },
                 placeholder = { Text(DEFAULT_BASE_URL, color = OnSurfaceVariant) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = outlinedColors(),
                 singleLine = true
             )
-            Text(
-                "Default: $DEFAULT_BASE_URL  (emulatore → localhost)\n" +
-                "Produzione: https://tuo-backend.railway.app",
-                style = MaterialTheme.typography.bodySmall,
-                color = OnSurfaceVariant
-            )
+            Text("Default: $DEFAULT_BASE_URL  •  Produzione: https://tuo-backend.railway.app", style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
 
             HorizontalDivider(color = SurfaceVariant)
 
-            // ── Provider AI ───────────────────────────────────────────────────
-            SectionLabel("Provider AI (backend)")
-
-            ExposedDropdownMenuBox(
-                expanded = providerDropdownExpanded,
-                onExpandedChange = { providerDropdownExpanded = it }
-            ) {
+            // ── AI Provider ───────────────────────────────────────────────────
+            SectionLabel("Provider AI")
+            ExposedDropdownMenuBox(expanded = providerExpanded, onExpandedChange = { providerExpanded = it }) {
                 OutlinedTextField(
                     value = state.preferences.aiProvider.displayName,
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("Seleziona provider") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = providerDropdownExpanded) },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth(),
+                    label = { Text("Provider") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = providerExpanded) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
                     colors = outlinedColors()
                 )
-                ExposedDropdownMenu(
-                    expanded = providerDropdownExpanded,
-                    onDismissRequest = { providerDropdownExpanded = false },
-                    modifier = Modifier.background(SurfaceVariant)
-                ) {
-                    AIProvider.entries.forEach { provider ->
-                        DropdownMenuItem(
-                            text = { Text(provider.displayName, color = OnBackground) },
-                            onClick = {
-                                viewModel.onProviderChange(provider)
-                                providerDropdownExpanded = false
-                            }
-                        )
+                ExposedDropdownMenu(expanded = providerExpanded, onDismissRequest = { providerExpanded = false }, modifier = Modifier.background(SurfaceVariant)) {
+                    AIProvider.entries.forEach { p ->
+                        DropdownMenuItem(text = { Text(p.displayName, color = OnBackground) }, onClick = { viewModel.onProviderChange(p); providerExpanded = false })
                     }
                 }
             }
 
-            HorizontalDivider(color = SurfaceVariant)
-
-            // ── API Key ───────────────────────────────────────────────────────
-            SectionLabel("API Key")
-
+            // AI API Key
             OutlinedTextField(
                 value = state.preferences.apiKey,
                 onValueChange = viewModel::onApiKeyChange,
-                label = { Text("API Key") },
+                label = { Text("API Key AI") },
                 placeholder = { Text("sk-...", color = OnSurfaceVariant) },
-                visualTransformation = if (showApiKey) VisualTransformation.None
-                                       else PasswordVisualTransformation(),
-                trailingIcon = {
-                    TextButton(onClick = { showApiKey = !showApiKey }) {
-                        Text(
-                            if (showApiKey) "Nascondi" else "Mostra",
-                            color = AlfredBlueLight,
-                            fontSize = MaterialTheme.typography.labelSmall.fontSize
-                        )
-                    }
-                },
+                visualTransformation = if (showAiKey) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = { TextButton(onClick = { showAiKey = !showAiKey }) { Text(if (showAiKey) "Nascondi" else "Mostra", color = AlfredBlueLight, fontSize = MaterialTheme.typography.labelSmall.fontSize) } },
                 modifier = Modifier.fillMaxWidth(),
                 colors = outlinedColors(),
                 singleLine = true
             )
+
+            HorizontalDivider(color = SurfaceVariant)
+
+            // ── Voice / ElevenLabs ────────────────────────────────────────────
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SectionLabel("Sintesi vocale (ElevenLabs)")
+                Spacer(Modifier.weight(1f))
+                Switch(
+                    checked = state.preferences.voiceEnabled,
+                    onCheckedChange = viewModel::onVoiceEnabledChange,
+                    colors = SwitchDefaults.colors(checkedTrackColor = AlfredBlue, checkedThumbColor = AlfredBlueLight)
+                )
+            }
+
+            OutlinedTextField(
+                value = state.preferences.elevenLabsApiKey,
+                onValueChange = viewModel::onElevenLabsKeyChange,
+                label = { Text("ElevenLabs API Key") },
+                placeholder = { Text("sk_...", color = OnSurfaceVariant) },
+                visualTransformation = if (showElevenKey) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = { TextButton(onClick = { showElevenKey = !showElevenKey }) { Text(if (showElevenKey) "Nascondi" else "Mostra", color = AlfredBlueLight, fontSize = MaterialTheme.typography.labelSmall.fontSize) } },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = state.preferences.voiceEnabled,
+                colors = outlinedColors(),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = state.preferences.voiceId,
+                onValueChange = viewModel::onVoiceIdChange,
+                label = { Text("Voice ID") },
+                placeholder = { Text("pNInz6obpgDQGcFmaJgB  (Adam)", color = OnSurfaceVariant) },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = state.preferences.voiceEnabled,
+                colors = outlinedColors(),
+                singleLine = true
+            )
+
             Text(
-                "La chiave viene salvata localmente sul dispositivo.",
+                "Trovi i Voice ID su elevenlabs.io/voice-library.\n" +
+                "Adam (default): pNInz6obpgDQGcFmaJgB",
                 style = MaterialTheme.typography.bodySmall,
                 color = OnSurfaceVariant
             )
@@ -155,9 +153,7 @@ fun SettingsScreen(
             // ── Save ──────────────────────────────────────────────────────────
             Button(
                 onClick = viewModel::save,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = AlfredBlue)
             ) {
                 Text("Salva impostazioni", fontWeight = FontWeight.SemiBold)
@@ -178,5 +174,8 @@ private fun outlinedColors() = OutlinedTextFieldDefaults.colors(
     focusedLabelColor = AlfredBlueLight,
     cursorColor = AlfredBlueLight,
     focusedTextColor = OnBackground,
-    unfocusedTextColor = OnBackground
+    unfocusedTextColor = OnBackground,
+    disabledBorderColor = SurfaceVariant,
+    disabledTextColor = OnSurfaceVariant,
+    disabledLabelColor = OnSurfaceVariant
 )

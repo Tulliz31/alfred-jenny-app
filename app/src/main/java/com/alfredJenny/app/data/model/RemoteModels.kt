@@ -73,6 +73,22 @@ data class SetProviderRequestDto(
     @Json(name = "provider") val provider: String
 )
 
+// ── Voice / TTS ───────────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class VoiceSpeakRequestDto(
+    @Json(name = "text") val text: String,
+    @Json(name = "voice_id") val voiceId: String = "pNInz6obpgDQGcFmaJgB",
+    @Json(name = "api_key") val apiKey: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class VoiceSpeakResponseDto(
+    @Json(name = "audio_base64") val audioBase64: String,
+    @Json(name = "format") val format: String,
+    @Json(name = "voice_id") val voiceId: String
+)
+
 // ── API error ────────────────────────────────────────────────────────────────
 
 @JsonClass(generateAdapter = true)

@@ -24,6 +24,11 @@ interface ApiService {
     @GET("companions")
     suspend fun getCompanions(): Response<List<CompanionDto>>
 
+    // ── Voice ────────────────────────────────────────────────────────────────
+
+    @POST("voice/speak")
+    suspend fun speak(@Body request: VoiceSpeakRequestDto): Response<VoiceSpeakResponseDto>
+
     // ── Providers ─────────────────────────────────────────────────────────────
 
     @GET("providers")

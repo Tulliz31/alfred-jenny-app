@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
 
+    # ElevenLabs TTS (optional — app can supply its own key per request)
+    ELEVENLABS_API_KEY: str = ""
+
     # CORS
     CORS_ORIGINS: str = "*"
 
