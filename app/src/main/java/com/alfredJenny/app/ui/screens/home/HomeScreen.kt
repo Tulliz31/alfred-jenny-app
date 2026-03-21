@@ -16,6 +16,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,6 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alfredJenny.app.data.local.ConversationEntity
 import com.alfredJenny.app.data.model.CompanionDto
 import com.alfredJenny.app.data.model.VoiceMode
+import com.alfredJenny.app.ui.components.AlfredAvatarView
 import com.alfredJenny.app.ui.theme.*
 
 @Composable
@@ -45,6 +49,7 @@ fun HomeScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val context = LocalContext.current
+    var avatarExpanded by remember { mutableStateOf(true) }
 
     // ── Audio permission ──────────────────────────────────────────────────────
     var hasAudioPermission by remember {
@@ -74,14 +79,16 @@ fun HomeScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                if (state.isSpeaking) SpeakingWave()
-                CompanionAvatar(
-                    companion = state.companions.firstOrNull { it.id == state.selectedCompanionId },
-                    isThinking = state.isLoading
-                )
+            // Small avatar toggle button
+            IconButton(onClick = { avatarExpanded = !avatarExpanded }) {
+                Box(contentAlignment = Alignment.Center) {
+                    CompanionAvatar(
+                        companion = state.companions.firstOrNull { it.id == state.selectedCompanionId },
+                        isThinking = state.isLoading
+                    )
+                }
             }
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(4.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     state.companions.firstOrNull { it.id == state.selectedCompanionId }?.name ?: "Alfred",
@@ -113,6 +120,23 @@ fun HomeScreen(
             }
             IconButton(onClick = onOpenSettings) {
                 Icon(Icons.Default.Settings, contentDescription = "Impostazioni", tint = OnSurfaceVariant)
+            }
+        }
+
+        // ── Animated avatar panel (collapsible) ──────────────────────────────
+        AnimatedVisibility(
+            visible = avatarExpanded,
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Background),
+                contentAlignment = Alignment.Center
+            ) {
+                if (state.isSpeaking) SpeakingWave()
+                AlfredAvatarView(state = state.avatarState)
             }
         }
 

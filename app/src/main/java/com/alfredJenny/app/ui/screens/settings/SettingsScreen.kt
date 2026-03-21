@@ -7,6 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +26,7 @@ import com.alfredJenny.app.ui.theme.*
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onOpenAvatarImport: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -157,6 +159,25 @@ fun SettingsScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = AlfredBlue)
             ) {
                 Text("Salva impostazioni", fontWeight = FontWeight.SemiBold)
+            }
+
+            HorizontalDivider(color = SurfaceVariant)
+
+            // ── Avatar ────────────────────────────────────────────────────────
+            SectionLabel("Avatar Alfred")
+            Text(
+                "Sostituisci i frame dell'avatar animato con grafica personalizzata.",
+                style = MaterialTheme.typography.bodySmall,
+                color = OnSurfaceVariant
+            )
+            OutlinedButton(
+                onClick = onOpenAvatarImport,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AlfredBlueLight)
+            ) {
+                Icon(Icons.Default.Face, contentDescription = null, tint = AlfredBlueLight, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Sostituisci avatar", fontWeight = FontWeight.SemiBold, color = AlfredBlueLight)
             }
         }
     }

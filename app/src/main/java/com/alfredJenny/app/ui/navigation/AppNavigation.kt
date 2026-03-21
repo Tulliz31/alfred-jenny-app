@@ -10,13 +10,15 @@ import com.alfredJenny.app.ui.screens.home.HomeScreen
 import com.alfredJenny.app.ui.screens.jenny.JennyScreen
 import com.alfredJenny.app.ui.screens.login.LoginScreen
 import com.alfredJenny.app.ui.screens.login.LoginViewModel
+import com.alfredJenny.app.ui.screens.avatar.AvatarImportScreen
 import com.alfredJenny.app.ui.screens.settings.SettingsScreen
 
 object Routes {
-    const val LOGIN    = "login"
-    const val HOME     = "home"
-    const val SETTINGS = "settings"
-    const val JENNY    = "jenny"
+    const val LOGIN         = "login"
+    const val HOME          = "home"
+    const val SETTINGS      = "settings"
+    const val JENNY         = "jenny"
+    const val AVATAR_IMPORT = "avatar_import"
 }
 
 @Composable
@@ -53,7 +55,13 @@ fun AppNavigation() {
             )
         }
         composable(Routes.SETTINGS) {
-            SettingsScreen(onBack = { navController.popBackStack() })
+            SettingsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenAvatarImport = { navController.navigate(Routes.AVATAR_IMPORT) }
+            )
+        }
+        composable(Routes.AVATAR_IMPORT) {
+            AvatarImportScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.JENNY) {
             JennyScreen()

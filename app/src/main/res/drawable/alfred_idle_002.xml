@@ -1,0 +1,28 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp" android:height="200dp"
+    android:viewportWidth="200" android:viewportHeight="200">
+    <!-- Head -->
+    <path android:fillColor="#1a3a5c"
+        android:pathData="M10,100 A90,90 0 1,0 190,100 A90,90 0 1,0 10,100 Z"/>
+    <path android:fillColor="#334D8ACA"
+        android:pathData="M32,38 A22,14 0 1,0 72,38 A22,14 0 1,0 32,38 Z"/>
+    <!-- Eyebrows (relaxed) -->
+    <path android:strokeColor="#D0D0E0" android:strokeWidth="3.5" android:strokeLineCap="round"
+        android:fillColor="#00000000" android:pathData="M56,68 Q68,63 80,66"/>
+    <path android:strokeColor="#D0D0E0" android:strokeWidth="3.5" android:strokeLineCap="round"
+        android:fillColor="#00000000" android:pathData="M120,66 Q132,63 144,68"/>
+    <!-- Left eye CLOSED (curved line = eyelid) -->
+    <path android:strokeColor="#E8E8F0" android:strokeWidth="4" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M57,82 Q68,76 79,82"/>
+    <!-- Right eye CLOSED -->
+    <path android:strokeColor="#E8E8F0" android:strokeWidth="4" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M121,82 Q132,76 143,82"/>
+    <!-- Smile (same) -->
+    <path android:strokeColor="#E8E8F0" android:strokeWidth="4" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M75,118 Q100,134 125,118"/>
+    <path android:fillColor="#2A5480"
+        android:pathData="M96,162 A4,4 0 1,0 104,162 A4,4 0 1,0 96,162 Z"/>
+</vector>

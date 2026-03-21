@@ -1,0 +1,45 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp" android:height="200dp"
+    android:viewportWidth="200" android:viewportHeight="200">
+    <!-- Head -->
+    <path android:fillColor="#1a3a5c"
+        android:pathData="M10,100 A90,90 0 1,0 190,100 A90,90 0 1,0 10,100 Z"/>
+    <path android:fillColor="#334D8ACA"
+        android:pathData="M32,38 A22,14 0 1,0 72,38 A22,14 0 1,0 32,38 Z"/>
+    <!-- Left eyebrow (relaxed, slightly lower) -->
+    <path android:strokeColor="#D0D0E0" android:strokeWidth="3.5" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M56,68 Q68,63 80,66"/>
+    <!-- Right eyebrow -->
+    <path android:strokeColor="#D0D0E0" android:strokeWidth="3.5" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M120,66 Q132,63 144,68"/>
+    <!-- Left eye white (3/4 open — squinting slightly, eyelid visible) -->
+    <path android:fillColor="#E8E8F0"
+        android:pathData="M55,82 A13,13 0 1,0 81,82 A13,13 0 1,0 55,82 Z"/>
+    <!-- Eyelid overlay left (covers top ~25%) -->
+    <path android:fillColor="#1a3a5c"
+        android:pathData="M55,76 Q68,72 81,76 L81,82 Q68,78 55,82 Z"/>
+    <!-- Left pupil (slightly down) -->
+    <path android:fillColor="#0D0D14"
+        android:pathData="M61,83 A7,7 0 1,0 75,83 A7,7 0 1,0 61,83 Z"/>
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M63,80 A2,2 0 1,0 67,80 A2,2 0 1,0 63,80 Z"/>
+    <!-- Right eye white -->
+    <path android:fillColor="#E8E8F0"
+        android:pathData="M119,82 A13,13 0 1,0 145,82 A13,13 0 1,0 119,82 Z"/>
+    <!-- Eyelid overlay right -->
+    <path android:fillColor="#1a3a5c"
+        android:pathData="M119,76 Q132,72 145,76 L145,82 Q132,78 119,82 Z"/>
+    <!-- Right pupil (slightly down) -->
+    <path android:fillColor="#0D0D14"
+        android:pathData="M125,83 A7,7 0 1,0 139,83 A7,7 0 1,0 125,83 Z"/>
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M127,80 A2,2 0 1,0 131,80 A2,2 0 1,0 127,80 Z"/>
+    <!-- Neutral smile -->
+    <path android:strokeColor="#E8E8F0" android:strokeWidth="4" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M75,118 Q100,134 125,118"/>
+    <path android:fillColor="#2A5480"
+        android:pathData="M96,162 A4,4 0 1,0 104,162 A4,4 0 1,0 96,162 Z"/>
+</vector>

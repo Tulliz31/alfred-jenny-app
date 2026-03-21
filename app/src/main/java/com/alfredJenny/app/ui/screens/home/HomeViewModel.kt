@@ -6,6 +6,7 @@ import com.alfredJenny.app.data.local.ConversationEntity
 import com.alfredJenny.app.data.model.CompanionDto
 import com.alfredJenny.app.data.model.VoiceMode
 import com.alfredJenny.app.data.repository.AuthRepository
+import com.alfredJenny.app.ui.components.AlfredAvatarState
 import com.alfredJenny.app.data.repository.ChatRepository
 import com.alfredJenny.app.data.repository.PreferencesRepository
 import com.alfredJenny.app.domain.usecase.GetConversationHistoryUseCase
@@ -33,7 +34,8 @@ data class HomeUiState(
     val isListening: Boolean = false,
     val isSpeaking: Boolean = false,
     val partialSpeechText: String = "",
-    val voiceError: String? = null
+    val voiceError: String? = null,
+    val avatarState: AlfredAvatarState = AlfredAvatarState.IDLE
 )
 
 @HiltViewModel
@@ -69,13 +71,13 @@ class HomeViewModel @Inject constructor(
         // Mirror isPlaying from playback service
         viewModelScope.launch {
             voicePlaybackService.isPlaying.collect { playing ->
-                _uiState.update { it.copy(isSpeaking = playing) }
+                _uiState.update { it.copy(isSpeaking = playing, avatarState = deriveAvatarState(it.isListening, it.isLoading, playing)) }
             }
         }
         // Mirror speech recognition state
         viewModelScope.launch {
             speechInputService.state.collect { s ->
-                _uiState.update { it.copy(isListening = s.isListening, partialSpeechText = s.partialText) }
+                _uiState.update { it.copy(isListening = s.isListening, partialSpeechText = s.partialText, avatarState = deriveAvatarState(s.isListening, it.isLoading, it.isSpeaking)) }
             }
         }
         // Wire STT callbacks
@@ -113,16 +115,16 @@ class HomeViewModel @Inject constructor(
         val companionId = state.selectedCompanionId
         if (text.isBlank() || state.isLoading) return
 
-        _uiState.update { it.copy(inputText = "", isLoading = true, error = null) }
+        _uiState.update { it.copy(inputText = "", isLoading = true, error = null, avatarState = AlfredAvatarState.THINKING) }
 
         viewModelScope.launch {
             chatRepository.sendMessage(sessionId, companionId, text)
                 .onSuccess { reply ->
-                    _uiState.update { it.copy(isLoading = false) }
+                    _uiState.update { it.copy(isLoading = false, avatarState = if (_uiState.value.voiceEnabled) AlfredAvatarState.TALKING else AlfredAvatarState.IDLE) }
                     if (_uiState.value.voiceEnabled) speakReply(reply)
                 }
                 .onFailure { err ->
-                    _uiState.update { it.copy(isLoading = false, error = err.message) }
+                    _uiState.update { it.copy(isLoading = false, error = err.message, avatarState = AlfredAvatarState.IDLE) }
                 }
         }
     }
@@ -180,6 +182,13 @@ class HomeViewModel @Inject constructor(
                 _uiState.update { it.copy(voiceError = "TTS: ${err.message}") }
             }
         }
+    }
+
+    private fun deriveAvatarState(isListening: Boolean, isLoading: Boolean, isSpeaking: Boolean): AlfredAvatarState = when {
+        isSpeaking  -> AlfredAvatarState.TALKING
+        isLoading   -> AlfredAvatarState.THINKING
+        isListening -> AlfredAvatarState.LISTENING
+        else        -> AlfredAvatarState.IDLE
     }
 
     override fun onCleared() {
