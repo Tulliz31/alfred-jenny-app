@@ -44,16 +44,29 @@ class AuthRepository @Inject constructor(
             val response = apiService.login(LoginRequestDto(username, password))
             if (response.isSuccessful) {
                 val body = response.body()!!
-                // Persist token and role
                 tokenStore.token = body.accessToken
                 tokenStore.role  = body.role
                 preferencesRepository.saveJwtToken(body.accessToken)
                 preferencesRepository.saveUserRole(body.role)
+                preferencesRepository.saveUsername(body.username)
                 body
             } else {
                 error(parseApiError(response.errorBody()?.string(), response.code()))
             }
         }
+    }
+
+    /**
+     * Re-verifies admin credentials without changing the active session.
+     * Used to unlock the Service section in Settings.
+     */
+    suspend fun verifyAdminPassword(password: String): Boolean {
+        val username = preferencesRepository.userPreferences.first().username
+        if (username.isBlank()) return false
+        return runCatching {
+            val response = apiService.login(LoginRequestDto(username, password))
+            response.isSuccessful && response.body()?.role == "admin"
+        }.getOrDefault(false)
     }
 
     suspend fun logout() {
@@ -66,7 +79,6 @@ class AuthRepository @Inject constructor(
     private fun parseApiError(body: String?, code: Int): String {
         if (body.isNullOrBlank()) return "Errore $code"
         return try {
-            // FastAPI returns {"detail": "..."}
             val match = """"detail"\s*:\s*"([^"]+)"""".toRegex().find(body)
             match?.groupValues?.getOrNull(1) ?: "Errore $code"
         } catch (_: Exception) {

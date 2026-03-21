@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from models.message import ChatRequest, ChatResponse
 from models.user import UserInDB
 from services.auth_service import get_current_user
-from services.companion_service import get_companion, get_companions_for_role
+from services.companion_service import get_companion, get_companions_for_role, build_jenny_system_prompt
 from services import ai_service
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -35,8 +35,15 @@ async def send_message(
             detail="messages non può essere vuoto",
         )
 
+    # Build system prompt — modulate Jenny based on personality_level
+    if companion.id == "jenny":
+        level = max(1, min(5, body.personality_level))
+        system_prompt = build_jenny_system_prompt(level)
+    else:
+        system_prompt = companion.system_prompt
+
     reply = await ai_service.chat(
-        system_prompt=companion.system_prompt,
+        system_prompt=system_prompt,
         messages=body.messages,
     )
 

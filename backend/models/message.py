@@ -17,6 +17,7 @@ class ChatMessageIn(BaseModel):
 class ChatRequest(BaseModel):
     companion_id: str = "alfred"
     messages: list[ChatMessageIn]
+    personality_level: int = 3
 
 
 class ChatResponse(BaseModel):

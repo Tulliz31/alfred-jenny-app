@@ -36,7 +36,8 @@ data class BackendChatMessageDto(
 @JsonClass(generateAdapter = true)
 data class BackendChatRequestDto(
     @Json(name = "companion_id") val companionId: String,
-    @Json(name = "messages") val messages: List<BackendChatMessageDto>
+    @Json(name = "messages") val messages: List<BackendChatMessageDto>,
+    @Json(name = "personality_level") val personalityLevel: Int = 3
 )
 
 @JsonClass(generateAdapter = true)

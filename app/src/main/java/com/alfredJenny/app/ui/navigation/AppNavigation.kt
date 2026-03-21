@@ -6,11 +6,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.alfredJenny.app.ui.screens.home.HomeScreen
-import com.alfredJenny.app.ui.screens.jenny.JennyScreen
+import com.alfredJenny.app.data.repository.AuthRepository
+import com.alfredJenny.app.ui.screens.avatar.AvatarImportScreen
 import com.alfredJenny.app.ui.screens.login.LoginScreen
 import com.alfredJenny.app.ui.screens.login.LoginViewModel
-import com.alfredJenny.app.ui.screens.avatar.AvatarImportScreen
+import com.alfredJenny.app.ui.screens.main.MainScreen
 import com.alfredJenny.app.ui.screens.settings.SettingsScreen
 
 object Routes {
@@ -22,19 +22,25 @@ object Routes {
 }
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(
+    authRepository: AuthRepository
+) {
     val navController = rememberNavController()
 
-    // Use the LoginViewModel to detect a saved session and skip the login screen.
     val loginVm: LoginViewModel = hiltViewModel()
     val loginState by loginVm.uiState.collectAsStateWithLifecycle()
 
-    // Auto-navigate to Home if a JWT is already stored.
     LaunchedEffect(loginState.autoLogin) {
         if (loginState.autoLogin) {
             navController.navigate(Routes.HOME) {
                 popUpTo(Routes.LOGIN) { inclusive = true }
             }
+        }
+    }
+
+    fun handleLogout() {
+        navController.navigate(Routes.LOGIN) {
+            popUpTo(0) { inclusive = true }
         }
     }
 
@@ -50,21 +56,21 @@ fun AppNavigation() {
             )
         }
         composable(Routes.HOME) {
-            HomeScreen(
+            MainScreen(
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) }
             )
         }
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
-                onOpenAvatarImport = { navController.navigate(Routes.AVATAR_IMPORT) }
+                onOpenAvatarImport = { navController.navigate(Routes.AVATAR_IMPORT) },
+                onLogout = {
+                    handleLogout()
+                }
             )
         }
         composable(Routes.AVATAR_IMPORT) {
             AvatarImportScreen(onBack = { navController.popBackStack() })
-        }
-        composable(Routes.JENNY) {
-            JennyScreen()
         }
     }
 }

@@ -24,27 +24,24 @@ class ChatRepository @Inject constructor(
 
     // ── Remote ────────────────────────────────────────────────────────────────
 
-    /**
-     * 1. Saves [userText] to Room.
-     * 2. Reads full history and sends it to the backend.
-     * 3. Saves the assistant reply to Room.
-     * Returns the reply text.
-     */
     suspend fun sendMessage(
         sessionId: String,
         companionId: String,
-        userText: String
+        userText: String,
+        personalityLevel: Int = 3
     ): Result<String> {
-        // Persist user message first
         dao.insertMessage(ConversationEntity(sessionId = sessionId, role = "user", content = userText))
 
         return runCatching {
-            // Fetch full history (including the just-inserted user message)
             val history = dao.getMessagesOnce(sessionId).map {
                 BackendChatMessageDto(role = it.role, content = it.content)
             }
             val response = apiService.chat(
-                BackendChatRequestDto(companionId = companionId, messages = history)
+                BackendChatRequestDto(
+                    companionId = companionId,
+                    messages = history,
+                    personalityLevel = personalityLevel
+                )
             )
             if (response.isSuccessful) {
                 val reply = response.body()!!.reply
@@ -54,8 +51,6 @@ class ChatRepository @Inject constructor(
                 error(parseApiError(response.errorBody()?.string(), response.code()))
             }
         }.also { result ->
-            // If API call failed, remove the optimistically-saved user message
-            // to keep UI consistent (optional — comment out if you prefer to keep it)
             if (result.isFailure) dao.clearSession(sessionId)
         }
     }
