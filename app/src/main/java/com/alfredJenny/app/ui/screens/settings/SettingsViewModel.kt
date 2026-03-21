@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.alfredJenny.app.data.model.AIProvider
 import com.alfredJenny.app.data.model.UserPreferences
+import com.alfredJenny.app.data.remote.DEFAULT_BASE_URL
+import com.alfredJenny.app.data.remote.TokenStore
 import com.alfredJenny.app.data.repository.PreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -17,7 +19,8 @@ data class SettingsUiState(
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val preferencesRepository: PreferencesRepository
+    private val preferencesRepository: PreferencesRepository,
+    private val tokenStore: TokenStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -39,11 +42,19 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(preferences = it.preferences.copy(apiKey = key), isSaved = false) }
     }
 
+    fun onBaseUrlChange(url: String) {
+        _uiState.update { it.copy(preferences = it.preferences.copy(baseUrl = url), isSaved = false) }
+    }
+
     fun save() {
         viewModelScope.launch {
             val prefs = _uiState.value.preferences
             preferencesRepository.saveAiProvider(prefs.aiProvider)
             preferencesRepository.saveApiKey(prefs.apiKey)
+            val effectiveUrl = prefs.baseUrl.trim().ifBlank { DEFAULT_BASE_URL }
+            preferencesRepository.saveBaseUrl(effectiveUrl)
+            // Apply to in-flight requests immediately
+            tokenStore.baseUrl = effectiveUrl
             _uiState.update { it.copy(isSaved = true) }
         }
     }

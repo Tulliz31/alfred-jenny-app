@@ -15,6 +15,9 @@ interface ConversationDao {
     @Query("SELECT * FROM messages WHERE sessionId = :sessionId ORDER BY timestamp ASC")
     fun getMessagesForSession(sessionId: String): Flow<List<ConversationEntity>>
 
+    @Query("SELECT * FROM messages WHERE sessionId = :sessionId ORDER BY timestamp ASC")
+    suspend fun getMessagesOnce(sessionId: String): List<ConversationEntity>
+
     @Query("SELECT DISTINCT sessionId FROM messages ORDER BY timestamp DESC")
     fun getAllSessionIds(): Flow<List<String>>
 

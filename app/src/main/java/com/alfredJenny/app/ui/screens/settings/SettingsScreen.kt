@@ -2,6 +2,8 @@ package com.alfredJenny.app.ui.screens.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -16,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alfredJenny.app.data.model.AIProvider
+import com.alfredJenny.app.data.remote.DEFAULT_BASE_URL
 import com.alfredJenny.app.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,7 +36,7 @@ fun SettingsScreen(
             .fillMaxSize()
             .background(Background)
     ) {
-        // Top bar
+        // ── Top bar ───────────────────────────────────────────────────────────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -58,11 +61,33 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Provider section
-            Text("Provider AI", fontWeight = FontWeight.SemiBold, color = OnSurface)
+            // ── Backend URL ───────────────────────────────────────────────────
+            SectionLabel("URL Backend")
+
+            OutlinedTextField(
+                value = state.preferences.baseUrl,
+                onValueChange = viewModel::onBaseUrlChange,
+                label = { Text("Indirizzo server") },
+                placeholder = { Text(DEFAULT_BASE_URL, color = OnSurfaceVariant) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = outlinedColors(),
+                singleLine = true
+            )
+            Text(
+                "Default: $DEFAULT_BASE_URL  (emulatore → localhost)\n" +
+                "Produzione: https://tuo-backend.railway.app",
+                style = MaterialTheme.typography.bodySmall,
+                color = OnSurfaceVariant
+            )
+
+            HorizontalDivider(color = SurfaceVariant)
+
+            // ── Provider AI ───────────────────────────────────────────────────
+            SectionLabel("Provider AI (backend)")
 
             ExposedDropdownMenuBox(
                 expanded = providerDropdownExpanded,
@@ -96,40 +121,54 @@ fun SettingsScreen(
                 }
             }
 
-            // API Key section
-            Text("API Key", fontWeight = FontWeight.SemiBold, color = OnSurface)
+            HorizontalDivider(color = SurfaceVariant)
+
+            // ── API Key ───────────────────────────────────────────────────────
+            SectionLabel("API Key")
 
             OutlinedTextField(
                 value = state.preferences.apiKey,
                 onValueChange = viewModel::onApiKeyChange,
                 label = { Text("API Key") },
                 placeholder = { Text("sk-...", color = OnSurfaceVariant) },
-                visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
+                visualTransformation = if (showApiKey) VisualTransformation.None
+                                       else PasswordVisualTransformation(),
                 trailingIcon = {
                     TextButton(onClick = { showApiKey = !showApiKey }) {
-                        Text(if (showApiKey) "Nascondi" else "Mostra", color = AlfredBlueLight, fontSize = MaterialTheme.typography.labelSmall.fontSize)
+                        Text(
+                            if (showApiKey) "Nascondi" else "Mostra",
+                            color = AlfredBlueLight,
+                            fontSize = MaterialTheme.typography.labelSmall.fontSize
+                        )
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = outlinedColors(),
                 singleLine = true
             )
-
             Text(
                 "La chiave viene salvata localmente sul dispositivo.",
                 style = MaterialTheme.typography.bodySmall,
                 color = OnSurfaceVariant
             )
 
+            // ── Save ──────────────────────────────────────────────────────────
             Button(
                 onClick = viewModel::save,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = AlfredBlue)
             ) {
                 Text("Salva impostazioni", fontWeight = FontWeight.SemiBold)
             }
         }
     }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(text, fontWeight = FontWeight.SemiBold, color = OnSurface)
 }
 
 @Composable
