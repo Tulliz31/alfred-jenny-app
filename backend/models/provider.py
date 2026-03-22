@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 from enum import Enum
-from typing import Optional
 
 
 class ProviderID(str, Enum):
@@ -15,6 +14,9 @@ class ProviderInfo(BaseModel):
     description: str
     default_model: str
     active: bool = False
+    price_per_1k_input: float = 0.0    # USD per 1K input tokens (indicative)
+    price_per_1k_output: float = 0.0   # USD per 1K output tokens (indicative)
+    avg_latency_ms: int = 1500         # Average first-token latency in ms
 
 
 class SetProviderRequest(BaseModel):

@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.alfredJenny.app.data.local.ConversationEntity
 import com.alfredJenny.app.data.model.CompanionDto
+import com.alfredJenny.app.data.model.StreamEvent
+import com.alfredJenny.app.data.model.UserPreferences
 import com.alfredJenny.app.data.model.VoiceMode
 import com.alfredJenny.app.data.repository.AuthRepository
 import com.alfredJenny.app.ui.components.AlfredAvatarState
@@ -22,6 +24,7 @@ data class HomeUiState(
     // Chat
     val messages: List<ConversationEntity> = emptyList(),
     val inputText: String = "",
+    val streamingContent: String = "",          // in-progress streamed reply
     val isLoading: Boolean = false,
     val error: String? = null,
     // Companions
@@ -35,7 +38,11 @@ data class HomeUiState(
     val isSpeaking: Boolean = false,
     val partialSpeechText: String = "",
     val voiceError: String? = null,
-    val avatarState: AlfredAvatarState = AlfredAvatarState.IDLE
+    val avatarState: AlfredAvatarState = AlfredAvatarState.IDLE,
+    // Provider
+    val activeProvider: String = "",
+    val fallbackNotice: String? = null,         // brief message when fallback fires
+    val isRefreshing: Boolean = false,
 )
 
 @HiltViewModel
@@ -53,34 +60,37 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState
 
+    private var prefs: UserPreferences = UserPreferences()
+
     init {
-        // Message history
         viewModelScope.launch {
             getConversationHistoryUseCase(sessionId).collect { msgs ->
                 _uiState.update { it.copy(messages = msgs) }
             }
         }
-        // Companions + admin flag
         loadCompanions()
-        // Sync voice prefs
         viewModelScope.launch {
-            preferencesRepository.userPreferences.collect { prefs ->
-                _uiState.update { it.copy(voiceEnabled = prefs.voiceEnabled) }
+            preferencesRepository.userPreferences.collect { p ->
+                prefs = p
+                _uiState.update { it.copy(voiceEnabled = p.voiceEnabled) }
             }
         }
-        // Mirror isPlaying from playback service
         viewModelScope.launch {
             voicePlaybackService.isPlaying.collect { playing ->
-                _uiState.update { it.copy(isSpeaking = playing, avatarState = deriveAvatarState(it.isListening, it.isLoading, playing)) }
+                _uiState.update {
+                    it.copy(isSpeaking = playing,
+                            avatarState = deriveAvatarState(it.isListening, it.isLoading, playing, it.streamingContent.isNotBlank()))
+                }
             }
         }
-        // Mirror speech recognition state
         viewModelScope.launch {
             speechInputService.state.collect { s ->
-                _uiState.update { it.copy(isListening = s.isListening, partialSpeechText = s.partialText, avatarState = deriveAvatarState(s.isListening, it.isLoading, it.isSpeaking)) }
+                _uiState.update {
+                    it.copy(isListening = s.isListening, partialSpeechText = s.partialText,
+                            avatarState = deriveAvatarState(s.isListening, it.isLoading, it.isSpeaking, it.streamingContent.isNotBlank()))
+                }
             }
         }
-        // Wire STT callbacks
         speechInputService.onFinalResult    = { text -> onVoiceResult(text) }
         speechInputService.onCommandDetected = { text -> onVoiceResult(text) }
     }
@@ -94,6 +104,17 @@ class HomeViewModel @Inject constructor(
                     _uiState.update { it.copy(companions = list, isAdmin = authRepository.isAdmin()) }
                 }
                 .onFailure { err -> _uiState.update { it.copy(error = err.message) } }
+        }
+    }
+
+    fun refresh() {
+        _uiState.update { it.copy(isRefreshing = true, error = null) }
+        viewModelScope.launch {
+            chatRepository.getCompanions()
+                .onSuccess { list ->
+                    _uiState.update { it.copy(companions = list, isAdmin = authRepository.isAdmin(), isRefreshing = false) }
+                }
+                .onFailure { _uiState.update { it.copy(isRefreshing = false) } }
         }
     }
 
@@ -115,35 +136,88 @@ class HomeViewModel @Inject constructor(
         val companionId = state.selectedCompanionId
         if (text.isBlank() || state.isLoading) return
 
-        _uiState.update { it.copy(inputText = "", isLoading = true, error = null, avatarState = AlfredAvatarState.THINKING) }
+        _uiState.update {
+            it.copy(inputText = "", isLoading = true, streamingContent = "",
+                    error = null, fallbackNotice = null,
+                    avatarState = AlfredAvatarState.THINKING)
+        }
+
+        var ttsSentTriggered = false
 
         viewModelScope.launch {
-            chatRepository.sendMessage(sessionId, companionId, text)
-                .onSuccess { reply ->
-                    _uiState.update { it.copy(isLoading = false, avatarState = if (_uiState.value.voiceEnabled) AlfredAvatarState.TALKING else AlfredAvatarState.IDLE) }
-                    if (_uiState.value.voiceEnabled) speakReply(reply)
+            chatRepository.streamMessage(
+                sessionId = sessionId,
+                companionId = companionId,
+                personalityLevel = prefs.jennyPersonalityLevel,
+                memoryEnabled = prefs.memoryEnabled,
+                memorySummaryInterval = prefs.memorySummaryInterval,
+                maxContextMessages = prefs.maxContextMessages,
+                userText = text,
+            ).collect { event ->
+                when (event) {
+                    is StreamEvent.Chunk -> {
+                        val newContent = _uiState.value.streamingContent + event.text
+                        _uiState.update {
+                            it.copy(
+                                streamingContent = newContent,
+                                avatarState = deriveAvatarState(it.isListening, true, it.isSpeaking, true)
+                            )
+                        }
+                        // TTS: fire after first complete sentence
+                        if (!ttsSentTriggered && _uiState.value.voiceEnabled) {
+                            val firstSentenceEnd = newContent.indexOfFirst { c -> c in ".!?;" }
+                            if (firstSentenceEnd > 15) {
+                                ttsSentTriggered = true
+                                speakReply(newContent.substring(0, firstSentenceEnd + 1))
+                                _uiState.update { it.copy(avatarState = AlfredAvatarState.TALKING) }
+                            }
+                        }
+                    }
+                    is StreamEvent.ProviderAnnounced -> {
+                        _uiState.update { it.copy(activeProvider = event.providerId) }
+                    }
+                    is StreamEvent.FallbackUsed -> {
+                        _uiState.update {
+                            it.copy(activeProvider = event.providerId,
+                                    fallbackNotice = "Fallback a ${event.providerId}")
+                        }
+                    }
+                    is StreamEvent.Done -> {
+                        val fullText = event.fullText
+                        chatRepository.saveStreamedReply(
+                            sessionId = sessionId,
+                            replyText = fullText,
+                            memoryEnabled = prefs.memoryEnabled,
+                            memorySummaryInterval = prefs.memorySummaryInterval,
+                        )
+                        _uiState.update {
+                            it.copy(isLoading = false, streamingContent = "",
+                                    activeProvider = event.providerId,
+                                    avatarState = if (it.voiceEnabled) AlfredAvatarState.TALKING else AlfredAvatarState.IDLE)
+                        }
+                    }
+                    is StreamEvent.Error -> {
+                        _uiState.update {
+                            it.copy(isLoading = false, streamingContent = "",
+                                    error = event.message, avatarState = AlfredAvatarState.IDLE)
+                        }
+                    }
                 }
-                .onFailure { err ->
-                    _uiState.update { it.copy(isLoading = false, error = err.message, avatarState = AlfredAvatarState.IDLE) }
-                }
+            }
         }
     }
 
-    fun dismissError() = _uiState.update { it.copy(error = null, voiceError = null) }
+    fun dismissError()        = _uiState.update { it.copy(error = null, voiceError = null) }
+    fun dismissFallbackNotice()= _uiState.update { it.copy(fallbackNotice = null) }
 
-    // ── Voice mode toggle ─────────────────────────────────────────────────────
+    // ── Voice mode ────────────────────────────────────────────────────────────
 
     fun toggleVoiceMode() {
         val next = if (_uiState.value.voiceMode == VoiceMode.OUTDOOR) VoiceMode.CASA else VoiceMode.OUTDOOR
         _uiState.update { it.copy(voiceMode = next) }
-        if (next == VoiceMode.CASA) {
-            speechInputService.startCasaListening()
-        } else {
-            speechInputService.stopListening()
-        }
+        if (next == VoiceMode.CASA) speechInputService.startCasaListening()
+        else speechInputService.stopListening()
     }
-
-    // ── Outdoor push-to-talk ──────────────────────────────────────────────────
 
     fun startOutdoorListening() {
         if (_uiState.value.voiceMode != VoiceMode.OUTDOOR) return
@@ -154,8 +228,6 @@ class HomeViewModel @Inject constructor(
         if (_uiState.value.voiceMode != VoiceMode.OUTDOOR) return
         speechInputService.stopListening()
     }
-
-    // ── TTS ───────────────────────────────────────────────────────────────────
 
     fun toggleVoice() {
         val enabled = !_uiState.value.voiceEnabled
@@ -173,7 +245,6 @@ class HomeViewModel @Inject constructor(
 
     private fun speakReply(text: String) {
         viewModelScope.launch {
-            val prefs = preferencesRepository.userPreferences.first()
             voicePlaybackService.speak(
                 text    = text,
                 voiceId = prefs.voiceId,
@@ -184,11 +255,17 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun deriveAvatarState(isListening: Boolean, isLoading: Boolean, isSpeaking: Boolean): AlfredAvatarState = when {
-        isSpeaking  -> AlfredAvatarState.TALKING
-        isLoading   -> AlfredAvatarState.THINKING
-        isListening -> AlfredAvatarState.LISTENING
-        else        -> AlfredAvatarState.IDLE
+    private fun deriveAvatarState(
+        isListening: Boolean,
+        isLoading: Boolean,
+        isSpeaking: Boolean,
+        isStreaming: Boolean
+    ): AlfredAvatarState = when {
+        isSpeaking   -> AlfredAvatarState.TALKING
+        isStreaming  -> AlfredAvatarState.TALKING
+        isLoading    -> AlfredAvatarState.THINKING
+        isListening  -> AlfredAvatarState.LISTENING
+        else         -> AlfredAvatarState.IDLE
     }
 
     override fun onCleared() {

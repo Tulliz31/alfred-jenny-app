@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
-from routers import auth, chat, companions, providers, voice
+from routers import auth, chat, companions, providers, voice, smart_home
 
 app = FastAPI(
     title="AlfredJenny API",
@@ -26,6 +26,7 @@ app.include_router(chat.router)
 app.include_router(companions.router)
 app.include_router(providers.router)
 app.include_router(voice.router)
+app.include_router(smart_home.router)
 
 
 @app.get("/", tags=["health"])

@@ -6,6 +6,11 @@ import retrofit2.http.*
 
 interface ApiService {
 
+    // ── Health ────────────────────────────────────────────────────────────────
+
+    @GET("health")
+    suspend fun health(): Response<Map<String, @JvmSuppressWildcards Any>>
+
     // ── Auth ──────────────────────────────────────────────────────────────────
 
     @POST("auth/login")
@@ -14,10 +19,15 @@ interface ApiService {
     @GET("auth/me")
     suspend fun getMe(): Response<UserMeDto>
 
-    // ── Chat ──────────────────────────────────────────────────────────────────
+    // ── Chat (non-streaming) ──────────────────────────────────────────────────
 
     @POST("chat")
     suspend fun chat(@Body request: BackendChatRequestDto): Response<BackendChatResponseDto>
+
+    // ── Summarize ─────────────────────────────────────────────────────────────
+
+    @POST("chat/summarize")
+    suspend fun summarize(@Body request: SummarizeRequestDto): Response<SummarizeResponseDto>
 
     // ── Companions ────────────────────────────────────────────────────────────
 
@@ -36,4 +46,21 @@ interface ApiService {
 
     @PUT("providers/active")
     suspend fun setActiveProvider(@Body request: SetProviderRequestDto): Response<ProviderDto>
+
+    // ── Smart Home ────────────────────────────────────────────────────────────
+
+    @GET("devices")
+    suspend fun getDevices(): Response<List<TuyaDeviceDto>>
+
+    @GET("devices/{deviceId}/status")
+    suspend fun getDeviceStatus(@Path("deviceId") deviceId: String): Response<DeviceStatusDto>
+
+    @POST("devices/{deviceId}/command")
+    suspend fun sendCommand(
+        @Path("deviceId") deviceId: String,
+        @Body command: DeviceCommandDto,
+    ): Response<CommandResultDto>
+
+    @POST("devices/discover")
+    suspend fun discoverDevices(): Response<List<TuyaDeviceDto>>
 }

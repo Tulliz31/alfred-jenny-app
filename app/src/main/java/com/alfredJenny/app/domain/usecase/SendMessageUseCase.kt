@@ -10,5 +10,5 @@ class SendMessageUseCase @Inject constructor(
         sessionId: String,
         companionId: String,
         userText: String
-    ): Result<String> = chatRepository.sendMessage(sessionId, companionId, userText)
+    ): Result<Pair<String, String>> = chatRepository.sendMessage(sessionId, companionId, userText)
 }

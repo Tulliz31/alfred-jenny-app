@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     # ElevenLabs TTS (optional — app can supply its own key per request)
     ELEVENLABS_API_KEY: str = ""
 
+    # Tuya Smart Home
+    TUYA_CLIENT_ID: str = ""
+    TUYA_CLIENT_SECRET: str = ""
+    TUYA_BASE_URL: str = "https://openapi.tuyaeu.com"   # EU region by default
+
     # CORS
     CORS_ORIGINS: str = "*"
 

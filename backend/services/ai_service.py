@@ -1,18 +1,24 @@
 """
 AI Service — routes chat requests to the active provider.
-Supported: OpenAI, Anthropic, Google Gemini.
+Supported: OpenAI GPT-4o, Anthropic Claude 3.5 Sonnet, Google Gemini 1.5 Pro.
+
+Public functions:
+  chat(...)         → (reply_text, provider_used, fallback_used)
+  chat_stream(...)  → AsyncGenerator[str, None]  (raw text chunks + control tokens)
 """
 from __future__ import annotations
 
+import json
 import httpx
+from typing import AsyncGenerator
 from fastapi import HTTPException, status
 
 from config import settings
 from models.message import ChatMessageIn
 from models.provider import ProviderID
 
-# Runtime mutable state — single active provider
 _active_provider: ProviderID = settings.ACTIVE_PROVIDER
+_FALLBACK_ORDER = [ProviderID.openai, ProviderID.anthropic, ProviderID.gemini]
 
 
 def get_active_provider() -> ProviderID:
@@ -24,108 +30,213 @@ def set_active_provider(provider: ProviderID) -> None:
     _active_provider = provider
 
 
-# ── OpenAI ───────────────────────────────────────────────────────────────────
+def _get_fallback_chain(primary: ProviderID) -> list[ProviderID]:
+    others = [p for p in _FALLBACK_ORDER if p != primary]
+    return [primary] + others
+
+
+# ── Payload builders ─────────────────────────────────────────────────────────
+
+def _openai_msgs(system_prompt: str, messages: list[ChatMessageIn]) -> list[dict]:
+    return [{"role": "system", "content": system_prompt}] + [
+        {"role": m.role, "content": m.content} for m in messages
+    ]
+
+
+def _anthropic_msgs(messages: list[ChatMessageIn]) -> list[dict]:
+    return [{"role": m.role, "content": m.content} for m in messages if m.role != "system"]
+
+
+def _gemini_payload(system_prompt: str, messages: list[ChatMessageIn]) -> dict:
+    role_map = {"user": "user", "assistant": "model", "system": "user"}
+    return {
+        "system_instruction": {"parts": [{"text": system_prompt}]},
+        "contents": [
+            {"role": role_map[m.role], "parts": [{"text": m.content}]}
+            for m in messages if m.role != "system"
+        ],
+        "generationConfig": {"maxOutputTokens": 1024},
+    }
+
+
+# ── Non-streaming calls ───────────────────────────────────────────────────────
 
 async def _call_openai(system_prompt: str, messages: list[ChatMessageIn]) -> str:
     if not settings.OPENAI_API_KEY:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                            detail="OPENAI_API_KEY non configurata")
-    payload = {
-        "model": "gpt-4o",
-        "messages": [{"role": "system", "content": system_prompt}]
-                   + [{"role": m.role, "content": m.content} for m in messages],
-        "max_tokens": 1024,
-    }
-    async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(
+        raise HTTPException(503, "OPENAI_API_KEY non configurata")
+    async with httpx.AsyncClient(timeout=60) as c:
+        r = await c.post(
             "https://api.openai.com/v1/chat/completions",
             headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
-            json=payload,
+            json={"model": "gpt-4o", "messages": _openai_msgs(system_prompt, messages), "max_tokens": 1024},
         )
     if r.status_code != 200:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
-                            detail=f"OpenAI error {r.status_code}: {r.text}")
-    data = r.json()
-    return data["choices"][0]["message"]["content"]
+        raise HTTPException(502, f"OpenAI error {r.status_code}: {r.text[:300]}")
+    return r.json()["choices"][0]["message"]["content"]
 
-
-# ── Anthropic ────────────────────────────────────────────────────────────────
 
 async def _call_anthropic(system_prompt: str, messages: list[ChatMessageIn]) -> str:
     if not settings.ANTHROPIC_API_KEY:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                            detail="ANTHROPIC_API_KEY non configurata")
-    payload = {
-        "model": "claude-3-5-haiku-20241022",
-        "system": system_prompt,
-        "messages": [{"role": m.role, "content": m.content} for m in messages
-                     if m.role != "system"],
-        "max_tokens": 1024,
-    }
-    async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(
+        raise HTTPException(503, "ANTHROPIC_API_KEY non configurata")
+    async with httpx.AsyncClient(timeout=60) as c:
+        r = await c.post(
             "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": settings.ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-            },
-            json=payload,
+            headers={"x-api-key": settings.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01"},
+            json={"model": "claude-3-5-sonnet-20241022", "system": system_prompt,
+                  "messages": _anthropic_msgs(messages), "max_tokens": 1024},
         )
     if r.status_code != 200:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
-                            detail=f"Anthropic error {r.status_code}: {r.text}")
-    data = r.json()
-    return data["content"][0]["text"]
+        raise HTTPException(502, f"Anthropic error {r.status_code}: {r.text[:300]}")
+    return r.json()["content"][0]["text"]
 
-
-# ── Google Gemini ────────────────────────────────────────────────────────────
 
 async def _call_gemini(system_prompt: str, messages: list[ChatMessageIn]) -> str:
     if not settings.GEMINI_API_KEY:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                            detail="GEMINI_API_KEY non configurata")
-
-    # Gemini uses "parts" format; map roles (user/assistant → user/model)
-    role_map = {"user": "user", "assistant": "model", "system": "user"}
-    contents = []
-    for m in messages:
-        if m.role == "system":
-            continue
-        contents.append({"role": role_map[m.role], "parts": [{"text": m.content}]})
-
-    payload = {
-        "system_instruction": {"parts": [{"text": system_prompt}]},
-        "contents": contents,
-        "generationConfig": {"maxOutputTokens": 1024},
-    }
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/"
-        f"models/gemini-1.5-flash:generateContent?key={settings.GEMINI_API_KEY}"
-    )
-    async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(url, json=payload)
+        raise HTTPException(503, "GEMINI_API_KEY non configurata")
+    url = (f"https://generativelanguage.googleapis.com/v1beta/"
+           f"models/gemini-1.5-pro:generateContent?key={settings.GEMINI_API_KEY}")
+    async with httpx.AsyncClient(timeout=60) as c:
+        r = await c.post(url, json=_gemini_payload(system_prompt, messages))
     if r.status_code != 200:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
-                            detail=f"Gemini error {r.status_code}: {r.text}")
-    data = r.json()
-    return data["candidates"][0]["content"]["parts"][0]["text"]
+        raise HTTPException(502, f"Gemini error {r.status_code}: {r.text[:300]}")
+    return r.json()["candidates"][0]["content"]["parts"][0]["text"]
 
 
-# ── Public entry point ────────────────────────────────────────────────────────
+# ── Streaming calls ───────────────────────────────────────────────────────────
+
+async def _stream_openai(system_prompt: str, messages: list[ChatMessageIn]) -> AsyncGenerator[str, None]:
+    if not settings.OPENAI_API_KEY:
+        raise HTTPException(503, "OPENAI_API_KEY non configurata")
+    async with httpx.AsyncClient(timeout=120) as c:
+        async with c.stream(
+            "POST", "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+            json={"model": "gpt-4o", "messages": _openai_msgs(system_prompt, messages),
+                  "max_tokens": 1024, "stream": True},
+        ) as resp:
+            if resp.status_code != 200:
+                body = await resp.aread()
+                raise HTTPException(502, f"OpenAI stream error {resp.status_code}: {body[:200]}")
+            async for line in resp.aiter_lines():
+                if line.startswith("data: "):
+                    raw = line[6:]
+                    if raw == "[DONE]":
+                        return
+                    try:
+                        delta = json.loads(raw)["choices"][0]["delta"].get("content", "")
+                        if delta:
+                            yield delta
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        pass
+
+
+async def _stream_anthropic(system_prompt: str, messages: list[ChatMessageIn]) -> AsyncGenerator[str, None]:
+    if not settings.ANTHROPIC_API_KEY:
+        raise HTTPException(503, "ANTHROPIC_API_KEY non configurata")
+    async with httpx.AsyncClient(timeout=120) as c:
+        async with c.stream(
+            "POST", "https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": settings.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01"},
+            json={"model": "claude-3-5-sonnet-20241022", "system": system_prompt,
+                  "messages": _anthropic_msgs(messages), "max_tokens": 1024, "stream": True},
+        ) as resp:
+            if resp.status_code != 200:
+                body = await resp.aread()
+                raise HTTPException(502, f"Anthropic stream error {resp.status_code}: {body[:200]}")
+            async for line in resp.aiter_lines():
+                if line.startswith("data: "):
+                    try:
+                        event = json.loads(line[6:])
+                        if event.get("type") == "content_block_delta":
+                            text = event.get("delta", {}).get("text", "")
+                            if text:
+                                yield text
+                    except (json.JSONDecodeError, KeyError):
+                        pass
+
+
+async def _stream_gemini(system_prompt: str, messages: list[ChatMessageIn]) -> AsyncGenerator[str, None]:
+    if not settings.GEMINI_API_KEY:
+        raise HTTPException(503, "GEMINI_API_KEY non configurata")
+    url = (f"https://generativelanguage.googleapis.com/v1beta/"
+           f"models/gemini-1.5-pro:streamGenerateContent?alt=sse&key={settings.GEMINI_API_KEY}")
+    async with httpx.AsyncClient(timeout=120) as c:
+        async with c.stream("POST", url, json=_gemini_payload(system_prompt, messages)) as resp:
+            if resp.status_code != 200:
+                body = await resp.aread()
+                raise HTTPException(502, f"Gemini stream error {resp.status_code}: {body[:200]}")
+            async for line in resp.aiter_lines():
+                if line.startswith("data: "):
+                    try:
+                        text = json.loads(line[6:])["candidates"][0]["content"]["parts"][0]["text"]
+                        if text:
+                            yield text
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        pass
+
+
+# ── Dispatch ──────────────────────────────────────────────────────────────────
+
+_CALL = {ProviderID.openai: _call_openai, ProviderID.anthropic: _call_anthropic, ProviderID.gemini: _call_gemini}
+_STREAM = {ProviderID.openai: _stream_openai, ProviderID.anthropic: _stream_anthropic, ProviderID.gemini: _stream_gemini}
+
+
+# ── Public API ────────────────────────────────────────────────────────────────
 
 async def chat(
     system_prompt: str,
     messages: list[ChatMessageIn],
     provider: ProviderID | None = None,
-) -> str:
-    active = provider or _active_provider
-    dispatch = {
-        ProviderID.openai: _call_openai,
-        ProviderID.anthropic: _call_anthropic,
-        ProviderID.gemini: _call_gemini,
-    }
-    fn = dispatch.get(active)
-    if fn is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=f"Provider sconosciuto: {active}")
-    return await fn(system_prompt, messages)
+    with_fallback: bool = True,
+) -> tuple[str, ProviderID, bool]:
+    """Returns (reply, provider_used, fallback_was_used)."""
+    primary = provider or _active_provider
+    chain = _get_fallback_chain(primary) if with_fallback else [primary]
+    last_exc: Exception = RuntimeError("No provider available")
+    for pid in chain:
+        fn = _CALL.get(pid)
+        if not fn:
+            continue
+        try:
+            reply = await fn(system_prompt, messages)
+            return reply, pid, (pid != primary)
+        except HTTPException as e:
+            if e.status_code in (502, 503):
+                last_exc = e
+            else:
+                raise
+    raise last_exc
+
+
+async def chat_stream(
+    system_prompt: str,
+    messages: list[ChatMessageIn],
+    provider: ProviderID | None = None,
+    with_fallback: bool = True,
+) -> AsyncGenerator[str, None]:
+    """
+    Yields raw text chunks.
+    Special control tokens (not shown to user) prefixed with \x00:
+      \x00PROVIDER:<id>   — which provider is now responding
+      \x00FALLBACK:<id>   — fallback was triggered; this provider is substituting
+    """
+    primary = provider or _active_provider
+    chain = _get_fallback_chain(primary) if with_fallback else [primary]
+    last_exc: Exception = RuntimeError("No provider available")
+    for pid in chain:
+        stream_fn = _STREAM.get(pid)
+        if not stream_fn:
+            continue
+        try:
+            yield f"\x00PROVIDER:{pid.value}"
+            if pid != primary:
+                yield f"\x00FALLBACK:{pid.value}"
+            async for chunk in stream_fn(system_prompt, messages):
+                yield chunk
+            return
+        except HTTPException as e:
+            if e.status_code in (502, 503):
+                last_exc = e
+            else:
+                raise
+    raise last_exc

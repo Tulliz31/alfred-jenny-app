@@ -32,6 +32,19 @@ class PreferencesRepository @Inject constructor(
         val KEY_JENNY_ENABLED         = booleanPreferencesKey("jenny_enabled")
         val KEY_JENNY_VOICE_ID        = stringPreferencesKey("jenny_voice_id")
         val KEY_JENNY_PERSONALITY     = intPreferencesKey("jenny_personality_level")
+        // Memory
+        val KEY_MEMORY_ENABLED        = booleanPreferencesKey("memory_enabled")
+        val KEY_MEMORY_INTERVAL       = intPreferencesKey("memory_summary_interval")
+        val KEY_MAX_CONTEXT_MESSAGES  = intPreferencesKey("max_context_messages")
+        // Advanced
+        val KEY_HTTP_TIMEOUT          = intPreferencesKey("http_timeout_seconds")
+        val KEY_RETRY_COUNT           = intPreferencesKey("retry_count")
+        val KEY_DEBUG_MODE            = booleanPreferencesKey("debug_mode")
+        val KEY_FALLBACK_ENABLED      = booleanPreferencesKey("provider_fallback_enabled")
+        // Smart Home
+        val KEY_SMART_HOME_ENABLED    = booleanPreferencesKey("smart_home_enabled")
+        // Onboarding
+        val KEY_ONBOARDING_COMPLETED  = booleanPreferencesKey("onboarding_completed")
     }
 
     val userPreferences: Flow<UserPreferences> = dataStore.data.map { prefs ->
@@ -39,18 +52,27 @@ class PreferencesRepository @Inject constructor(
             aiProvider = prefs[KEY_AI_PROVIDER]?.let {
                 runCatching { AIProvider.valueOf(it) }.getOrDefault(AIProvider.OPENAI)
             } ?: AIProvider.OPENAI,
-            apiKey              = prefs[KEY_API_KEY]           ?: "",
-            selectedModel       = prefs[KEY_MODEL]             ?: "",
-            baseUrl             = prefs[KEY_BASE_URL]          ?: "",
-            jwtToken            = prefs[KEY_JWT_TOKEN]         ?: "",
-            userRole            = prefs[KEY_USER_ROLE]         ?: "",
-            username            = prefs[KEY_USERNAME]          ?: "",
-            elevenLabsApiKey    = prefs[KEY_ELEVENLABS_KEY]    ?: "",
-            voiceId             = prefs[KEY_VOICE_ID]          ?: "pNInz6obpgDQGcFmaJgB",
-            voiceEnabled        = prefs[KEY_VOICE_ENABLED]     ?: false,
-            jennyEnabled        = prefs[KEY_JENNY_ENABLED]     ?: false,
-            jennyVoiceId        = prefs[KEY_JENNY_VOICE_ID]    ?: "EXAVITQu4vr4xnSDxMaL",
-            jennyPersonalityLevel = prefs[KEY_JENNY_PERSONALITY] ?: 3
+            apiKey              = prefs[KEY_API_KEY]              ?: "",
+            selectedModel       = prefs[KEY_MODEL]                ?: "",
+            baseUrl             = prefs[KEY_BASE_URL]             ?: "",
+            jwtToken            = prefs[KEY_JWT_TOKEN]            ?: "",
+            userRole            = prefs[KEY_USER_ROLE]            ?: "",
+            username            = prefs[KEY_USERNAME]             ?: "",
+            elevenLabsApiKey    = prefs[KEY_ELEVENLABS_KEY]       ?: "",
+            voiceId             = prefs[KEY_VOICE_ID]             ?: "pNInz6obpgDQGcFmaJgB",
+            voiceEnabled        = prefs[KEY_VOICE_ENABLED]        ?: false,
+            jennyEnabled        = prefs[KEY_JENNY_ENABLED]        ?: false,
+            jennyVoiceId        = prefs[KEY_JENNY_VOICE_ID]       ?: "EXAVITQu4vr4xnSDxMaL",
+            jennyPersonalityLevel = prefs[KEY_JENNY_PERSONALITY]  ?: 3,
+            memoryEnabled       = prefs[KEY_MEMORY_ENABLED]       ?: true,
+            memorySummaryInterval = prefs[KEY_MEMORY_INTERVAL]    ?: 20,
+            maxContextMessages  = prefs[KEY_MAX_CONTEXT_MESSAGES] ?: 50,
+            httpTimeoutSeconds  = prefs[KEY_HTTP_TIMEOUT]         ?: 60,
+            retryCount          = prefs[KEY_RETRY_COUNT]          ?: 2,
+            debugMode           = prefs[KEY_DEBUG_MODE]           ?: false,
+            providerFallbackEnabled = prefs[KEY_FALLBACK_ENABLED] ?: true,
+            smartHomeEnabled        = prefs[KEY_SMART_HOME_ENABLED] ?: false,
+            onboardingCompleted     = prefs[KEY_ONBOARDING_COMPLETED] ?: false,
         )
     }
 
@@ -67,4 +89,17 @@ class PreferencesRepository @Inject constructor(
     suspend fun saveJennyEnabled(enabled: Boolean)   { dataStore.edit { it[KEY_JENNY_ENABLED]     = enabled } }
     suspend fun saveJennyVoiceId(id: String)         { dataStore.edit { it[KEY_JENNY_VOICE_ID]    = id } }
     suspend fun saveJennyPersonalityLevel(level: Int){ dataStore.edit { it[KEY_JENNY_PERSONALITY] = level } }
+    // Memory
+    suspend fun saveMemoryEnabled(enabled: Boolean)  { dataStore.edit { it[KEY_MEMORY_ENABLED]    = enabled } }
+    suspend fun saveMemorySummaryInterval(n: Int)    { dataStore.edit { it[KEY_MEMORY_INTERVAL]   = n } }
+    suspend fun saveMaxContextMessages(n: Int)       { dataStore.edit { it[KEY_MAX_CONTEXT_MESSAGES] = n } }
+    // Advanced
+    suspend fun saveHttpTimeout(secs: Int)           { dataStore.edit { it[KEY_HTTP_TIMEOUT]      = secs } }
+    suspend fun saveRetryCount(n: Int)               { dataStore.edit { it[KEY_RETRY_COUNT]       = n } }
+    suspend fun saveDebugMode(enabled: Boolean)      { dataStore.edit { it[KEY_DEBUG_MODE]        = enabled } }
+    suspend fun saveFallbackEnabled(enabled: Boolean){ dataStore.edit { it[KEY_FALLBACK_ENABLED]  = enabled } }
+    // Smart Home
+    suspend fun saveSmartHomeEnabled(enabled: Boolean){ dataStore.edit { it[KEY_SMART_HOME_ENABLED] = enabled } }
+    // Onboarding
+    suspend fun saveOnboardingCompleted(done: Boolean){ dataStore.edit { it[KEY_ONBOARDING_COMPLETED] = done } }
 }

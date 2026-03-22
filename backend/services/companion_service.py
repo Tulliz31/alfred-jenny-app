@@ -2,6 +2,19 @@ from dataclasses import dataclass
 from models.user import Role
 
 
+# Injected at runtime by chat router when Tuya is configured
+_smart_home_context: str = ""
+
+
+def set_smart_home_context(text: str) -> None:
+    global _smart_home_context
+    _smart_home_context = text
+
+
+def get_smart_home_context() -> str:
+    return _smart_home_context
+
+
 @dataclass
 class Companion:
     id: str
