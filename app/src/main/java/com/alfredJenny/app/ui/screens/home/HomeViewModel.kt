@@ -250,13 +250,13 @@ class HomeViewModel @Inject constructor(
                             viewModelScope.launch {
                                 val calId = prefs.defaultCalendarId
                                 if (calId < 0L) {
-                                    _uiState.update { it.copy(calendarReadResult = "Nessun calendario selezionato nelle impostazioni.") }
+                                    chatRepository.saveAssistantMessage(sessionId, "⚠️ Nessun calendario selezionato nelle impostazioni.")
                                     return@launch
                                 }
                                 val (startMs, endMs) = periodToRange(event.period)
                                 val events = calendarRepository.getEvents(calId, startMs, endMs)
                                 val text = calendarRepository.formatEventsForDisplay(events)
-                                _uiState.update { it.copy(calendarReadResult = text) }
+                                chatRepository.saveAssistantMessage(sessionId, text)
                             }
                         }
                     }
@@ -298,7 +298,7 @@ class HomeViewModel @Inject constructor(
                     if (calId >= 0L) {
                         val (startMs, endMs) = periodToRange(period)
                         val events = calendarRepository.getEvents(calId, startMs, endMs)
-                        _uiState.update { it.copy(calendarReadResult = calendarRepository.formatEventsForDisplay(events)) }
+                        chatRepository.saveAssistantMessage(sessionId, calendarRepository.formatEventsForDisplay(events))
                     }
                 }
             }

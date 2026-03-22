@@ -42,6 +42,7 @@ import com.alfredJenny.app.ui.components.PermissionRationaleDialog
 import com.alfredJenny.app.ui.theme.*
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JennyScreen(
     viewModel: JennyViewModel = hiltViewModel()
@@ -351,6 +352,67 @@ fun JennyScreen(
                     .background(if (state.inputText.isNotBlank()) JennyPurple else SurfaceVariant)
             ) {
                 Icon(Icons.Default.Send, contentDescription = "Invia", tint = OnBackground)
+            }
+        }
+    }
+
+    // ── Calendar event confirmation BottomSheet ───────────────────────────────
+    state.pendingCalendarEvent?.let { ev ->
+        ModalBottomSheet(
+            onDismissRequest = viewModel::dismissCalendarEvent,
+            containerColor = Surface,
+            tonalElevation = 8.dp,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Text("📅 Aggiungere evento?",
+                    fontWeight = FontWeight.Bold, color = OnBackground, fontSize = 18.sp)
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = JennyPurple.copy(alpha = 0.12f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(ev.title, fontWeight = FontWeight.SemiBold, color = OnBackground, fontSize = 16.sp)
+                        if (ev.description.isNotBlank()) {
+                            Text(ev.description, color = OnSurfaceVariant, fontSize = 13.sp)
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = null,
+                                tint = JennyPurpleLight, modifier = Modifier.size(14.dp))
+                            Text("${ev.date}  ${ev.startTime} – ${ev.endTime}",
+                                color = JennyPurpleLight, fontSize = 13.sp)
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = viewModel::dismissCalendarEvent,
+                        modifier = Modifier.weight(1f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, OnSurfaceVariant),
+                    ) { Text("Annulla", color = OnSurfaceVariant) }
+                    Button(
+                        onClick = viewModel::confirmCalendarEvent,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = JennyPurple),
+                    ) { Text("Aggiungi") }
+                }
             }
         }
     }

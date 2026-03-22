@@ -235,6 +235,12 @@ class ChatRepository @Inject constructor(
         awaitClose { eventSource.cancel() }
     }
 
+    // ── Save a synthetic assistant message (calendar results, system notices) ──
+
+    suspend fun saveAssistantMessage(sessionId: String, content: String) {
+        dao.insertMessage(ConversationEntity(sessionId = sessionId, role = "assistant", content = content))
+    }
+
     // ── Save streamed reply to DB ─────────────────────────────────────────────
 
     suspend fun saveStreamedReply(

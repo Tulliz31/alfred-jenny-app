@@ -322,6 +322,67 @@ fun HomeScreen(
         }
     }
 
+    // ── Calendar event confirmation BottomSheet ───────────────────────────────
+    state.pendingCalendarEvent?.let { ev ->
+        ModalBottomSheet(
+            onDismissRequest = viewModel::dismissCalendarEvent,
+            containerColor = Surface,
+            tonalElevation = 8.dp,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Text("📅 Aggiungere evento?",
+                    fontWeight = FontWeight.Bold, color = OnBackground, fontSize = 18.sp)
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = AlfredBlue.copy(alpha = 0.12f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(ev.title, fontWeight = FontWeight.SemiBold, color = OnBackground, fontSize = 16.sp)
+                        if (ev.description.isNotBlank()) {
+                            Text(ev.description, color = OnSurfaceVariant, fontSize = 13.sp)
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = null,
+                                tint = AlfredBlueLight, modifier = Modifier.size(14.dp))
+                            Text("${ev.date}  ${ev.startTime} – ${ev.endTime}",
+                                color = AlfredBlueLight, fontSize = 13.sp)
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = viewModel::dismissCalendarEvent,
+                        modifier = Modifier.weight(1f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, OnSurfaceVariant),
+                    ) { Text("Annulla", color = OnSurfaceVariant) }
+                    Button(
+                        onClick = viewModel::confirmCalendarEvent,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = AlfredBlue),
+                    ) { Text("Aggiungi") }
+                }
+            }
+        }
+    }
+
     // ── Permission rationale dialog ────────────────────────────────────────────
     if (showPermissionRationale) {
         PermissionRationaleDialog(
