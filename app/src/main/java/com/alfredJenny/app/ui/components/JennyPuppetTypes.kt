@@ -28,6 +28,17 @@ enum class JennyOutfit(val assetFile: String, val label: String) {
     CASUAL("body_casual.png", "Casual"),
     SERATA("body_serata.png", "Serata"),
     BIKINI("body_bikini.png", "Bikini"),
+    CUSTOM_0("body_custom_0.png", "Custom 1"),
+    CUSTOM_1("body_custom_1.png", "Custom 2"),
+    CUSTOM_2("body_custom_2.png", "Custom 3"),
+    CUSTOM_3("body_custom_3.png", "Custom 4"),
+    CUSTOM_4("body_custom_4.png", "Custom 5"),
+    CUSTOM_5("body_custom_5.png", "Custom 6"),
+    ;
+    companion object {
+        fun builtIn() = listOf(CASUAL, SERATA, BIKINI)
+        fun custom() = listOf(CUSTOM_0, CUSTOM_1, CUSTOM_2, CUSTOM_3, CUSTOM_4, CUSTOM_5)
+    }
 }
 
 // ── Emotion detector ──────────────────────────────────────────────────────────

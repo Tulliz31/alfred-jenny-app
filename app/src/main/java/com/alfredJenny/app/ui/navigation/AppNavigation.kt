@@ -5,11 +5,13 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.alfredJenny.app.data.repository.AuthRepository
-import com.alfredJenny.app.ui.screens.avatar.AvatarImportScreen
+import com.alfredJenny.app.ui.screens.avatar.AvatarManagerScreen
 import com.alfredJenny.app.ui.screens.login.LoginScreen
 import com.alfredJenny.app.ui.screens.login.LoginViewModel
 import com.alfredJenny.app.ui.screens.main.MainScreen
@@ -20,13 +22,15 @@ import com.alfredJenny.app.ui.screens.splash.SplashScreen
 import com.alfredJenny.app.ui.screens.splash.SplashViewModel
 
 object Routes {
-    const val SPLASH        = "splash"
-    const val ONBOARDING    = "onboarding"
-    const val LOGIN         = "login"
-    const val HOME          = "home"
-    const val SETTINGS      = "settings"
-    const val JENNY         = "jenny"
-    const val AVATAR_IMPORT = "avatar_import"
+    const val SPLASH          = "splash"
+    const val ONBOARDING      = "onboarding"
+    const val LOGIN           = "login"
+    const val HOME            = "home"
+    const val SETTINGS        = "settings"
+    const val JENNY           = "jenny"
+    const val AVATAR_IMPORT   = "avatar_manager?mode=alfred"  // legacy alias
+    const val AVATAR_ALFRED   = "avatar_manager?mode=alfred"
+    const val AVATAR_JENNY    = "avatar_manager?mode=jenny"
 }
 
 // ── Transition presets ────────────────────────────────────────────────────────
@@ -118,20 +122,26 @@ fun AppNavigation(
         ) {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
-                onOpenAvatarImport = { navController.navigate(Routes.AVATAR_IMPORT) },
+                onOpenAvatarImport = { navController.navigate(Routes.AVATAR_ALFRED) },
+                onOpenJennyAvatar  = { navController.navigate(Routes.AVATAR_JENNY) },
                 onLogout = { navigateToLogin() }
             )
         }
 
-        // ── Avatar import ─────────────────────────────────────────────────────
+        // ── Avatar manager ────────────────────────────────────────────────────
         composable(
-            route = Routes.AVATAR_IMPORT,
+            route = "avatar_manager?mode={mode}",
+            arguments = listOf(navArgument("mode") {
+                type = NavType.StringType
+                defaultValue = "alfred"
+            }),
             enterTransition = { enterSlide },
             exitTransition  = { exitSlide },
             popEnterTransition = { popEnter },
             popExitTransition  = { popExit },
-        ) {
-            AvatarImportScreen(onBack = { navController.popBackStack() })
+        ) { backStackEntry ->
+            val mode = backStackEntry.arguments?.getString("mode") ?: "alfred"
+            AvatarManagerScreen(mode = mode, onBack = { navController.popBackStack() })
         }
     }
 }

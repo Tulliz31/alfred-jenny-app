@@ -10,6 +10,7 @@ import com.alfredJenny.app.data.model.AIProvider
 import com.alfredJenny.app.data.model.UserPreferences
 import com.alfredJenny.app.data.remote.DEFAULT_BASE_URL
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -54,6 +55,13 @@ class PreferencesRepository @Inject constructor(
         // Jenny outfit
         val KEY_JENNY_OUTFIT          = stringPreferencesKey("jenny_outfit")
         val KEY_JENNY_AUTO_OUTFIT     = booleanPreferencesKey("jenny_auto_outfit")
+        // Custom outfit names (6 slots)
+        val KEY_CUSTOM_OUTFIT_0_NAME  = stringPreferencesKey("custom_outfit_0_name")
+        val KEY_CUSTOM_OUTFIT_1_NAME  = stringPreferencesKey("custom_outfit_1_name")
+        val KEY_CUSTOM_OUTFIT_2_NAME  = stringPreferencesKey("custom_outfit_2_name")
+        val KEY_CUSTOM_OUTFIT_3_NAME  = stringPreferencesKey("custom_outfit_3_name")
+        val KEY_CUSTOM_OUTFIT_4_NAME  = stringPreferencesKey("custom_outfit_4_name")
+        val KEY_CUSTOM_OUTFIT_5_NAME  = stringPreferencesKey("custom_outfit_5_name")
     }
 
     val userPreferences: Flow<UserPreferences> = dataStore.data.map { prefs ->
@@ -127,4 +135,26 @@ class PreferencesRepository @Inject constructor(
     // Jenny outfit
     suspend fun saveJennyOutfit(outfit: String)         { dataStore.edit { it[KEY_JENNY_OUTFIT]          = outfit } }
     suspend fun saveJennyAutoOutfit(enabled: Boolean)   { dataStore.edit { it[KEY_JENNY_AUTO_OUTFIT]     = enabled } }
+    // Custom outfit names
+    suspend fun getCustomOutfitNames(): List<String> = dataStore.data.map { prefs ->
+        listOf(
+            prefs[KEY_CUSTOM_OUTFIT_0_NAME] ?: "",
+            prefs[KEY_CUSTOM_OUTFIT_1_NAME] ?: "",
+            prefs[KEY_CUSTOM_OUTFIT_2_NAME] ?: "",
+            prefs[KEY_CUSTOM_OUTFIT_3_NAME] ?: "",
+            prefs[KEY_CUSTOM_OUTFIT_4_NAME] ?: "",
+            prefs[KEY_CUSTOM_OUTFIT_5_NAME] ?: "",
+        )
+    }.first()
+    suspend fun saveCustomOutfitName(index: Int, name: String) {
+        val key = when (index) {
+            0 -> KEY_CUSTOM_OUTFIT_0_NAME
+            1 -> KEY_CUSTOM_OUTFIT_1_NAME
+            2 -> KEY_CUSTOM_OUTFIT_2_NAME
+            3 -> KEY_CUSTOM_OUTFIT_3_NAME
+            4 -> KEY_CUSTOM_OUTFIT_4_NAME
+            else -> KEY_CUSTOM_OUTFIT_5_NAME
+        }
+        dataStore.edit { it[key] = name }
+    }
 }

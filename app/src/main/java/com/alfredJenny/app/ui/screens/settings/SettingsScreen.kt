@@ -55,6 +55,7 @@ private enum class SettingsSection(val label: String, val icon: ImageVector) {
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenAvatarImport: () -> Unit = {},
+    onOpenJennyAvatar: () -> Unit = {},
     onLogout: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -193,7 +194,7 @@ fun SettingsScreen(
                     SettingsSection.AVANZATE    -> AvanzateSection(state, viewModel)
                     SettingsSection.ACCOUNT     -> AccountSection(state, onLogout)
                     SettingsSection.SMART_HOME  -> SmartHomeAdminSection(state, viewModel)
-                    SettingsSection.SERVIZIO    -> ServizioSection(state, viewModel)
+                    SettingsSection.SERVIZIO    -> ServizioSection(state, viewModel, onOpenJennyAvatar)
                     null -> {}
                 }
             }
@@ -666,7 +667,7 @@ private fun AccountRow(label: String, value: String) {
 // ── Servizio ──────────────────────────────────────────────────────────────────
 
 @Composable
-private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel) {
+private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel, onOpenJennyAvatar: () -> Unit) {
     SectionLabel("Companion Jenny")
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -751,7 +752,7 @@ private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        JennyOutfit.values().forEach { o ->
+        JennyOutfit.builtIn().forEach { o ->
             val thumb = rememberAssetBitmap(o.assetFile, sampleSize = 4)
             val isActive = (o == currentOutfit)
             Column(
@@ -813,6 +814,19 @@ private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel
 
     HorizontalDivider(color = SurfaceVariant, modifier = Modifier.padding(top = 12.dp))
     SaveButton(viewModel)
+    HorizontalDivider(color = SurfaceVariant)
+    SectionLabel("Avatar Jenny")
+    Text("Sostituisci i PNG di body, occhi e bocca con immagini personalizzate.",
+        style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+    OutlinedButton(
+        onClick = onOpenJennyAvatar,
+        modifier = Modifier.fillMaxWidth().height(52.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, JennyPurpleLight)
+    ) {
+        Icon(Icons.Default.Face, contentDescription = null, tint = JennyPurpleLight, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Gestisci avatar Jenny", fontWeight = FontWeight.SemiBold, color = JennyPurpleLight)
+    }
     HorizontalDivider(color = SurfaceVariant)
     SectionLabel("Gestione dati")
     OutlinedButton(

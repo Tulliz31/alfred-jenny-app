@@ -6,6 +6,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import java.io.File
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -50,12 +51,20 @@ fun rememberAssetBitmap(assetPath: String, sampleSize: Int = 1): ImageBitmap? {
     var bitmap by remember(assetPath, sampleSize) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(assetPath, sampleSize) {
         bitmap = withContext(Dispatchers.IO) {
-            runCatching {
-                val opts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-                context.assets.open("jenny/$assetPath").use { stream ->
-                    BitmapFactory.decodeStream(stream, null, opts)?.asImageBitmap()
-                }
-            }.getOrNull()
+            val opts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+            // filesDir takes priority over bundled assets
+            val override = File(context.filesDir, "avatars/jenny/$assetPath")
+            if (override.exists()) {
+                runCatching {
+                    override.inputStream().use { BitmapFactory.decodeStream(it, null, opts)?.asImageBitmap() }
+                }.getOrNull()
+            } else {
+                runCatching {
+                    context.assets.open("jenny/$assetPath").use { stream ->
+                        BitmapFactory.decodeStream(stream, null, opts)?.asImageBitmap()
+                    }
+                }.getOrNull()
+            }
         }
     }
     return bitmap
@@ -169,11 +178,17 @@ fun JennyAvatarView(
     LaunchedEffect(Unit) {
         JennyOutfit.values().forEach { o ->
             val bmp = withContext(Dispatchers.IO) {
-                runCatching {
-                    context.assets.open("jenny/${o.assetFile}").use { s ->
-                        BitmapFactory.decodeStream(s)?.asImageBitmap()
-                    }
-                }.getOrNull()
+                // filesDir overrides bundled assets
+                val override = File(context.filesDir, "avatars/jenny/${o.assetFile}")
+                if (override.exists()) {
+                    runCatching { override.inputStream().use { BitmapFactory.decodeStream(it)?.asImageBitmap() } }.getOrNull()
+                } else {
+                    runCatching {
+                        context.assets.open("jenny/${o.assetFile}").use { s ->
+                            BitmapFactory.decodeStream(s)?.asImageBitmap()
+                        }
+                    }.getOrNull()
+                }
             }
             if (bmp != null) bodyBitmaps[o] = bmp
         }
@@ -305,16 +320,27 @@ fun JennyAvatarView(
 fun JennyOutfitBar(
     currentOutfit: JennyOutfit,
     onSelect: (JennyOutfit) -> Unit,
+    customOutfitNames: List<String> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically
     ) {
         JennyOutfit.values().forEach { o ->
+            // Skip custom outfits that have no file in filesDir
+            if (o in JennyOutfit.custom()) {
+                val f = File(context.filesDir, "avatars/jenny/${o.assetFile}")
+                if (!f.exists()) return@forEach
+            }
             val thumb = rememberAssetBitmap(o.assetFile, sampleSize = 4)
             val isActive = (o == currentOutfit)
+            val displayLabel = if (o in JennyOutfit.custom()) {
+                val idx = JennyOutfit.custom().indexOf(o)
+                customOutfitNames.getOrNull(idx)?.takeIf { it.isNotBlank() } ?: o.label
+            } else o.label
             Box(
                 modifier = Modifier
                     .size(52.dp, 72.dp)
@@ -333,7 +359,7 @@ fun JennyOutfitBar(
                 if (thumb != null) {
                     Image(
                         bitmap = thumb,
-                        contentDescription = o.label,
+                        contentDescription = displayLabel,
                         contentScale = ContentScale.Fit,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -348,7 +374,7 @@ fun JennyOutfitBar(
                     contentAlignment = Alignment.Center
                 ) {
                     androidx.compose.material3.Text(
-                        text = o.label,
+                        text = displayLabel,
                         color = if (isActive) JennyPurpleLight else OnSurfaceVariant,
                         fontSize = 9.sp,
                         fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
