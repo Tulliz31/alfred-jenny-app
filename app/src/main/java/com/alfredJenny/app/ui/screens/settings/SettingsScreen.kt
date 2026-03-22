@@ -1283,21 +1283,84 @@ private fun SmartHomeAdminSection(state: SettingsUiState, viewModel: SettingsVie
             color = SuccessGreen, fontWeight = FontWeight.Medium,
         )
         state.discoveredDevices.forEach { device ->
-            Surface(shape = RoundedCornerShape(8.dp), color = SurfaceVariant, modifier = Modifier.fillMaxWidth()) {
-                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(device.displayName, color = OnBackground, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                        Text("ID: ${device.id}  •  ${device.type}", color = OnSurfaceVariant, fontSize = 10.sp)
+            var editName by remember(device.id) { mutableStateOf(device.displayName) }
+            var isEditing by remember(device.id) { mutableStateOf(false) }
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = if (device.visible) SurfaceVariant else SurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(device.displayName, color = if (device.visible) OnBackground else OnSurfaceVariant,
+                                fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                            Text("ID: ${device.id}  •  ${device.type}", color = OnSurfaceVariant, fontSize = 10.sp)
+                        }
+                        Surface(
+                            shape = CircleShape,
+                            color = if (device.online) SuccessGreen.copy(0.15f) else SurfaceVariant,
+                        ) {
+                            Text(
+                                if (device.online) "online" else "offline",
+                                color = if (device.online) SuccessGreen else OnSurfaceVariant,
+                                fontSize = 9.sp,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        // Visibility toggle (controls if device is visible to AI)
+                        Switch(
+                            checked = device.visible,
+                            onCheckedChange = { viewModel.toggleDeviceVisible(device.id, it) },
+                            modifier = Modifier.height(24.dp),
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = SmartHomeAmberLight,
+                                checkedTrackColor = SmartHomeAmberLight.copy(0.4f),
+                                uncheckedThumbColor = OnSurfaceVariant,
+                                uncheckedTrackColor = SurfaceVariant,
+                            ),
+                        )
+                        IconButton(onClick = { isEditing = !isEditing }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Edit, null, tint = if (isEditing) SmartHomeAmberLight else OnSurfaceVariant,
+                                modifier = Modifier.size(16.dp))
+                        }
                     }
-                    Surface(
-                        shape = CircleShape,
-                        color = if (device.online) SuccessGreen.copy(0.15f) else SurfaceVariant,
-                    ) {
+                    // Inline rename field
+                    if (isEditing) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            OutlinedTextField(
+                                value = editName,
+                                onValueChange = { editName = it },
+                                label = { Text("Nome custom", fontSize = 11.sp) },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = SmartHomeAmberLight,
+                                    unfocusedBorderColor = OnSurfaceVariant,
+                                    focusedLabelColor = SmartHomeAmberLight,
+                                    cursorColor = SmartHomeAmberLight,
+                                    focusedTextColor = OnBackground,
+                                    unfocusedTextColor = OnBackground,
+                                ),
+                            )
+                            IconButton(
+                                onClick = {
+                                    viewModel.renameSettingsDevice(device.id, editName.trim())
+                                    isEditing = false
+                                },
+                                modifier = Modifier.size(36.dp),
+                            ) {
+                                Icon(Icons.Default.Save, null, tint = SmartHomeAmberLight, modifier = Modifier.size(18.dp))
+                            }
+                        }
                         Text(
-                            if (device.online) "online" else "offline",
-                            color = if (device.online) SuccessGreen else OnSurfaceVariant,
-                            fontSize = 9.sp,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            if (device.visible) "Visibile ad Alfred e Jenny" else "Nascosto agli assistenti",
+                            color = if (device.visible) SmartHomeAmberLight else OnSurfaceVariant,
+                            fontSize = 10.sp,
                         )
                     }
                 }

@@ -251,13 +251,53 @@ class SettingsViewModel @Inject constructor(
     fun discoverDevices() {
         viewModelScope.launch {
             _uiState.update { it.copy(isDiscoveringDevices = true, discoveryError = null) }
-            smartHomeRepository.discoverDevices()
-                .onSuccess { devices ->
+            // Use enriched device list to get visibility info
+            smartHomeRepository.getDevices()
+                .onSuccess { (devices, _) ->
                     _uiState.update { it.copy(isDiscoveringDevices = false, discoveredDevices = devices) }
                 }
                 .onFailure { err ->
-                    _uiState.update { it.copy(isDiscoveringDevices = false, discoveryError = err.message) }
+                    // fallback to legacy discover
+                    smartHomeRepository.discoverDevices()
+                        .onSuccess { devices ->
+                            _uiState.update { it.copy(isDiscoveringDevices = false, discoveredDevices = devices) }
+                        }
+                        .onFailure { err2 ->
+                            _uiState.update { it.copy(isDiscoveringDevices = false, discoveryError = err2.message) }
+                        }
                 }
+        }
+    }
+
+    fun toggleDeviceVisible(deviceId: String, visible: Boolean) {
+        viewModelScope.launch {
+            smartHomeRepository.setDeviceVisible(deviceId, visible)
+                .onSuccess {
+                    _uiState.update { state ->
+                        state.copy(
+                            discoveredDevices = state.discoveredDevices.map {
+                                if (it.id == deviceId) it.copy(visible = visible) else it
+                            }
+                        )
+                    }
+                }
+                .onFailure { /* silent */ }
+        }
+    }
+
+    fun renameSettingsDevice(deviceId: String, newName: String) {
+        viewModelScope.launch {
+            smartHomeRepository.renameDevice(deviceId, newName)
+                .onSuccess {
+                    _uiState.update { state ->
+                        state.copy(
+                            discoveredDevices = state.discoveredDevices.map {
+                                if (it.id == deviceId) it.copy(nameCustom = newName) else it
+                            }
+                        )
+                    }
+                }
+                .onFailure { /* silent */ }
         }
     }
 

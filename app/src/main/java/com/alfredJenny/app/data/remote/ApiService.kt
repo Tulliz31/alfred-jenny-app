@@ -84,6 +84,12 @@ interface ApiService {
         @Body request: RenameDeviceDto,
     ): Response<Map<String, @JvmSuppressWildcards Any>>
 
+    @PUT("devices/{deviceId}/visible")
+    suspend fun setDeviceVisible(
+        @Path("deviceId") deviceId: String,
+        @Query("visible") visible: Boolean,
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
     @POST("devices/sync")
     suspend fun syncDevices(): Response<DevicesResponseDto>
 

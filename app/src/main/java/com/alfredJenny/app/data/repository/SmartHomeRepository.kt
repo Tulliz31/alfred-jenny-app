@@ -62,6 +62,13 @@ class SmartHomeRepository @Inject constructor(
         if (!resp.isSuccessful) error("Errore ${resp.code()}: ${resp.message()}")
     }
 
+    // ── Visibility ────────────────────────────────────────────────────────────
+
+    suspend fun setDeviceVisible(deviceId: String, visible: Boolean): Result<Unit> = runCatching {
+        val resp = apiService.setDeviceVisible(deviceId, visible)
+        if (!resp.isSuccessful) error("Errore ${resp.code()}: ${resp.message()}")
+    }
+
     // ── Sync / discover ───────────────────────────────────────────────────────
 
     suspend fun syncDevices(): Result<Pair<List<SmartHomeDevice>, String>> = runCatching {
