@@ -22,6 +22,33 @@ enum class MouthState(val assetFile: String) {
     OPEN_L("mouth_open_l.png"),
 }
 
+// ── Face states (unified eye + lip-sync, Opzione A) ───────────────────────────
+
+/**
+ * Unified face state for the two-layer avatar approach.
+ * Each value maps to a full-face PNG (eyes_*.png or mouth_*.png).
+ * The mouth_open_* variants show the full face with mouth open,
+ * used for lip sync instead of a separate mouth overlay.
+ */
+enum class FaceState(val assetFile: String) {
+    EYES_OPEN("eyes_open.png"),
+    EYES_HALF("eyes_half.png"),
+    EYES_CLOSED("eyes_closed.png"),
+    EYES_HAPPY("eyes_happy.png"),
+    EYES_SURPRISED("eyes_surprised.png"),
+    MOUTH_OPEN_S("mouth_open_s.png"),
+    MOUTH_OPEN_M("mouth_open_m.png"),
+    MOUTH_OPEN_L("mouth_open_l.png"),
+}
+
+fun EyeState.toFaceState(): FaceState = when (this) {
+    EyeState.OPEN      -> FaceState.EYES_OPEN
+    EyeState.HALF      -> FaceState.EYES_HALF
+    EyeState.CLOSED    -> FaceState.EYES_CLOSED
+    EyeState.HAPPY     -> FaceState.EYES_HAPPY
+    EyeState.SURPRISED -> FaceState.EYES_SURPRISED
+}
+
 // ── Outfit ────────────────────────────────────────────────────────────────────
 
 enum class JennyOutfit(val assetFile: String, val label: String) {

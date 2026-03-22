@@ -45,20 +45,23 @@ import kotlin.random.Random
 // ── Teal background removal ───────────────────────────────────────────────────
 
 /**
- * Removes the teal chroma-key background (#00BCD4 ≈ r<80, g>150, b>150) from a bitmap.
- * Matching pixels are replaced with transparent. Runs on IO thread.
+ * Removes the teal chroma-key background (≈ RGB 153,231,231) from a bitmap.
+ * Condition: g>180, b>180, r<180, g>r+40, b>r+40.
+ * Uses bulk getPixels/setPixels for performance.
  */
 private fun removeTealBackground(bmp: android.graphics.Bitmap): android.graphics.Bitmap {
     val result = bmp.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
-    for (x in 0 until result.width) {
-        for (y in 0 until result.height) {
-            val px = result.getPixel(x, y)
-            val r = android.graphics.Color.red(px)
-            val g = android.graphics.Color.green(px)
-            val b = android.graphics.Color.blue(px)
-            if (g > 150 && b > 150 && r < 80) result.setPixel(x, y, android.graphics.Color.TRANSPARENT)
+    val pixels = IntArray(result.width * result.height)
+    result.getPixels(pixels, 0, result.width, 0, 0, result.width, result.height)
+    for (i in pixels.indices) {
+        val r = android.graphics.Color.red(pixels[i])
+        val g = android.graphics.Color.green(pixels[i])
+        val b = android.graphics.Color.blue(pixels[i])
+        if (g > 180 && b > 180 && r < 180 && g > r + 40 && b > r + 40) {
+            pixels[i] = android.graphics.Color.TRANSPARENT
         }
     }
+    result.setPixels(pixels, 0, result.width, 0, 0, result.width, result.height)
     return result
 }
 
@@ -127,20 +130,17 @@ fun rememberAssetBitmap(assetPath: String, sampleSize: Int = 1): ImageBitmap? {
 // ── Main composable ───────────────────────────────────────────────────────────
 
 /**
- * Puppet-style Jenny avatar built from layered transparent PNGs.
+ * Two-layer Jenny avatar built from transparent PNGs.
  *
  * Layers (bottom → top):
- *  1. Body   — outfit-specific full-body sprite + breathing bob + glow ring
- *  2. Eyes   — emotion/blink state, Crossfade 150 ms
- *  3. Mouth  — lip-sync state driven by audioAmplitude
- *  4. Stars  — floating particle system (rising glitter)
- *  5. Vignette — purple radial vignette
+ *  1. Body   — outfit sprite (neck downward), breathing bob + glow ring
+ *  2. Face   — unified FaceState PNG (full face with hair) at top
+ *  3. Stars  — floating particle system
+ *  4. Vignette — purple radial vignette
  *
- * Overlay positioning (BoxWithConstraints):
- *  • Eyes   centred at 35% of body height from top
- *  • Mouth  centred at 52% of body height from top
- *
- * Outfit bar row is rendered at the bottom of the outer Column.
+ * Face images (eyes_*.png / mouth_*.png) each contain the full head.
+ * Lip sync uses mouth_open_s/m/l.png (same format, mouth open variant).
+ * No separate mouth overlay needed — Opzione A.
  */
 @Composable
 fun JennyAvatarView(
@@ -194,43 +194,38 @@ fun JennyAvatarView(
         }
     }
 
-    // ── Blink (random 3–6 s, full sequence: HALF → CLOSED → HALF) ────────────
-    var blinkPhase by remember { mutableStateOf<EyeState?>(null) }
+    // ── Blink (random 3–6 s: HALF → CLOSED → HALF) ───────────────────────────
+    var blinkPhase by remember { mutableStateOf<FaceState?>(null) }
     LaunchedEffect(Unit) {
         while (true) {
             delay(Random.nextLong(3000, 6000))
-            blinkPhase = EyeState.HALF;  delay(55)
-            blinkPhase = EyeState.CLOSED; delay(80)
-            blinkPhase = EyeState.HALF;  delay(55)
+            blinkPhase = FaceState.EYES_HALF;   delay(55)
+            blinkPhase = FaceState.EYES_CLOSED; delay(80)
+            blinkPhase = FaceState.EYES_HALF;   delay(55)
             blinkPhase = null
             if (Random.nextFloat() > 0.55f) {
                 delay(110)
-                blinkPhase = EyeState.HALF;  delay(55)
-                blinkPhase = EyeState.CLOSED; delay(75)
-                blinkPhase = EyeState.HALF;  delay(55)
+                blinkPhase = FaceState.EYES_HALF;   delay(55)
+                blinkPhase = FaceState.EYES_CLOSED; delay(75)
+                blinkPhase = FaceState.EYES_HALF;   delay(55)
                 blinkPhase = null
             }
         }
     }
-    val effectiveEyeState = blinkPhase ?: eyeEmotion
 
-    // ── Mouth via amplitude ───────────────────────────────────────────────────
-    val mouthState = if (state == AlfredAvatarState.TALKING) {
-        when {
-            audioAmplitude < 0.2f -> MouthState.CLOSED
-            audioAmplitude < 0.4f -> MouthState.OPEN_S
-            audioAmplitude < 0.7f -> MouthState.OPEN_M
-            else                  -> MouthState.OPEN_L
+    // ── Unified face state: blink > lip-sync > emotion ────────────────────────
+    val faceState: FaceState = when {
+        state == AlfredAvatarState.TALKING && audioAmplitude >= 0.3f -> when {
+            audioAmplitude < 0.6f -> FaceState.MOUTH_OPEN_S
+            audioAmplitude < 0.8f -> FaceState.MOUTH_OPEN_M
+            else                  -> FaceState.MOUTH_OPEN_L
         }
-    } else {
-        MouthState.SMILE
+        blinkPhase != null -> blinkPhase!!
+        else               -> eyeEmotion.toFaceState()
     }
 
-    // ── Coil painters (filesDir → assets, handled automatically) ──────────────
-    // Each painter is keyed to the current state; Coil handles caching.
-    val bodyPainter   = jennyImage(outfit.assetFile, crossfadeMs = 300)
-    val eyePainter    = jennyImage(effectiveEyeState.assetFile, crossfadeMs = 150)
-    val mouthPainter  = jennyImage(mouthState.assetFile, crossfadeMs = 80)
+    // ── Body painter ──────────────────────────────────────────────────────────
+    val bodyPainter = jennyImage(outfit.assetFile, crossfadeMs = 300)
 
     // Log available asset files once at startup for debug purposes
     LaunchedEffect(Unit) {
@@ -248,16 +243,15 @@ fun JennyAvatarView(
                 .weight(1f),
             contentAlignment = Alignment.Center
         ) {
-            val bW = maxWidth
-            val bH = maxHeight
-
             // Layer 1 — Body (glow + breathing + react)
+            // padding(top) leaves room for the face layer above it
             Image(
                 painter = bodyPainter,
                 contentDescription = "Jenny",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxSize()
+                    .padding(top = 80.dp)
                     .jennyBodyGlow()
                     .graphicsLayer {
                         translationX = parallaxX.value * 0.08f
@@ -267,15 +261,14 @@ fun JennyAvatarView(
                     }
             )
 
-            // Layer 2 — Eyes: full-face crops — cover the entire head area (top 45%)
-            val eyeH = bH * 0.45f
+            // Layer 2 — Face (full-face PNG covering the head area at top)
             Crossfade(
-                targetState = effectiveEyeState,
+                targetState = faceState,
                 animationSpec = tween(150),
-                label = "eyes",
+                label = "face",
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(eyeH)
+                    .fillMaxWidth(0.80f)
+                    .fillMaxHeight(0.45f)
                     .align(Alignment.TopCenter)
                     .offset(
                         x = (parallaxX.value * 0.14f).dp,
@@ -285,48 +278,19 @@ fun JennyAvatarView(
                         scaleX = reactScale.value
                         scaleY = reactScale.value
                     }
-            ) { _ ->
+            ) { fs ->
                 Image(
-                    painter = eyePainter,
+                    painter = jennyImage(fs.assetFile, crossfadeMs = 0),
                     contentDescription = null,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize()
                 )
             }
 
-            // Layer 3 — Mouth: full-face crops — overlay on lower face area (~28% from top)
-            val mW = bW * 0.60f
-            val mH = bH * 0.15f
-            Crossfade(
-                targetState = mouthState,
-                animationSpec = tween(80),
-                label = "mouth",
-                modifier = Modifier
-                    .width(mW)
-                    .height(mH)
-                    .align(Alignment.TopCenter)
-                    .offset(
-                        x = (parallaxX.value * 0.10f).dp,
-                        y = bH * 0.28f + (breathOffset + parallaxY.value * 0.06f).dp
-                    )
-                    .graphicsLayer {
-                        scaleX = reactScale.value
-                        scaleY = reactScale.value * if (state == AlfredAvatarState.TALKING)
-                            0.85f + audioAmplitude * 0.35f else 1f
-                    }
-            ) { _ ->
-                Image(
-                    painter = mouthPainter,
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-
-            // Layer 4 — Floating stars
+            // Layer 3 — Floating stars
             JennyStarParticles(modifier = Modifier.fillMaxSize())
 
-            // Layer 5 — Vignette
+            // Layer 4 — Vignette
             JennyVignette(modifier = Modifier.fillMaxSize())
         }
 

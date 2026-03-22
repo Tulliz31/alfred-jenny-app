@@ -1,0 +1,33 @@
+JENNY AVATAR ASSETS
+===================
+
+Tutti i PNG hanno sfondo TRASPARENTE (canale alpha).
+
+BODY / OUTFIT:
+  body_casual.png      → outfit casual (top bianco + jeans)
+  body_segretaria.png  → outfit segretaria (stessa immagine, rinominare con il nuovo artwork)
+  body_serata.png      → outfit da sera (abito nero)
+  body_bikini.png      → bikini
+
+OCCHI (5 espressioni):
+  eyes_open.png        → occhi aperti (default)
+  eyes_half.png        → occhi a metà (sonnolento/seducente)
+  eyes_closed.png      → occhi chiusi (blink)
+  eyes_happy.png       → occhi felici (wink)
+  eyes_surprised.png   → occhi sorpresa
+
+BOCCA (5 posizioni):
+  mouth_closed.png     → bocca chiusa
+  mouth_smile.png      → sorriso
+  mouth_open_s.png     → aperta piccola
+  mouth_open_m.png     → aperta media
+  mouth_open_l.png     → aperta grande (lip sync)
+
+DOVE METTERE I FILE:
+  app\src\main\assets\jenny\
+
+NOTA OUTFIT SEGRETARIA:
+  Al momento body_segretaria.png è uguale a body_casual.
+  Per avere il vero outfit da segretaria, sostituisci
+  body_segretaria.png con il nuovo artwork.
+  Dimensioni consigliate: 512x768px, PNG trasparente.
