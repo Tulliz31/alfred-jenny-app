@@ -89,11 +89,6 @@ fun MainScreen(
     LaunchedEffect(notesEnabled) {
         if (!notesEnabled && selectedTab == MainTab.NOTES) selectedTab = MainTab.HOME
     }
-    // Smart Home tab only for admin
-    LaunchedEffect(isAdmin) {
-        if (!isAdmin && selectedTab == MainTab.SMART_HOME) selectedTab = MainTab.HOME
-    }
-
     Scaffold(
         containerColor = Background,
         bottomBar = {
@@ -127,8 +122,8 @@ fun MainScreen(
                         )
                     )
                 }
-                // Smart Home tab — admin only
-                if (isAdmin && smartHomeEnabled) {
+                // Smart Home tab — visible to all when enabled
+                if (smartHomeEnabled) {
                     NavigationBarItem(
                         icon = { Icon(Icons.Default.Lightbulb, contentDescription = "Smart Home") },
                         label = { Text("Casa") },
@@ -169,7 +164,7 @@ fun MainScreen(
                         else HomeScreen(onOpenSettings = onOpenSettings)
                     }
                     MainTab.NOTES      -> NotesScreen()
-                    MainTab.SMART_HOME -> SmartHomeScreen(onOpenSettings = onOpenSettings)
+                    MainTab.SMART_HOME -> SmartHomeScreen(onOpenSettings = onOpenSettings, isAdmin = isAdmin)
                 }
             }
 

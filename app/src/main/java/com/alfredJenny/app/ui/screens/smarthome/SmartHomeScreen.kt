@@ -45,6 +45,7 @@ private val TuyaBadge   = Color(0xFF1A6B8A)
 @Composable
 fun SmartHomeScreen(
     onOpenSettings: () -> Unit = {},
+    isAdmin: Boolean = false,
     viewModel: SmartHomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -150,7 +151,7 @@ fun SmartHomeScreen(
 
             // ── Tuya not configured ───────────────────────────────────────────
             if (!state.tuyaConfigured) {
-                TuyaSetupScreen(onOpenSettings = onOpenSettings)
+                TuyaSetupScreen(onOpenSettings = onOpenSettings, isAdmin = isAdmin)
                 return@Column
             }
 
@@ -245,7 +246,7 @@ fun SmartHomeScreen(
 // ── Tuya not configured ───────────────────────────────────────────────────────
 
 @Composable
-private fun TuyaSetupScreen(onOpenSettings: () -> Unit) {
+private fun TuyaSetupScreen(onOpenSettings: () -> Unit, isAdmin: Boolean) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -266,26 +267,42 @@ private fun TuyaSetupScreen(onOpenSettings: () -> Unit) {
                     )
                 }
             }
-            Text(
-                "Connetti il tuo account Tuya",
-                color = OnBackground,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-            )
-            Text(
-                "Configura le credenziali Tuya nelle impostazioni admin per controllare i tuoi dispositivi smart home con Alfred e Jenny.",
-                color = OnSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            )
-            Button(
-                onClick = onOpenSettings,
-                colors = ButtonDefaults.buttonColors(containerColor = Amber),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Default.Settings, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Configura", fontWeight = FontWeight.SemiBold)
+            if (isAdmin) {
+                Text(
+                    "Connetti il tuo account Tuya",
+                    color = OnBackground,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                )
+                Text(
+                    "Configura le credenziali Tuya nelle impostazioni per controllare i tuoi dispositivi smart home con Alfred e Jenny.",
+                    color = OnSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+                Button(
+                    onClick = onOpenSettings,
+                    colors = ButtonDefaults.buttonColors(containerColor = Amber),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Default.Settings, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Configura", fontWeight = FontWeight.SemiBold)
+                }
+            } else {
+                Text(
+                    "Smart Home non ancora configurato",
+                    color = OnBackground,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+                Text(
+                    "Chiedi all'amministratore di configurare l'integrazione Tuya nelle impostazioni.",
+                    color = OnSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
             }
         }
     }
