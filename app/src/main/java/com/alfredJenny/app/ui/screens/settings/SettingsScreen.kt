@@ -460,6 +460,7 @@ private fun SectionCard(section: SettingsSection, badge: String?, onClick: () ->
 
 // ── Generale ──────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GeneraleSection(state: SettingsUiState, viewModel: SettingsViewModel, onOpenAvatarImport: () -> Unit, onOpenAlfredAI: () -> Unit = {}) {
     SectionLabel("Backend")
