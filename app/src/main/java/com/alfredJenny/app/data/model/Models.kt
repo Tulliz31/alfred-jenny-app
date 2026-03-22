@@ -133,6 +133,26 @@ data class SmartHomeDevice(
     val hasTemperature: Boolean get() = "temperature" in capabilities
 }
 
+/** An ElevenLabs voice entry for the in-app voice browser. */
+data class ElevenLabsVoice(
+    val voiceId: String,
+    val name: String,
+    val category: String,
+    val description: String,
+    val previewUrl: String,
+    val accent: String,
+    val gender: String,
+    val age: String,
+    val useCase: String,
+)
+
+/** ElevenLabs subscription / usage info. */
+data class VoiceSubscription(
+    val tier: String,
+    val characterCount: Int,
+    val characterLimit: Int,
+)
+
 /** A streaming event from ChatRepository.streamMessage(). */
 sealed class StreamEvent {
     data class Chunk(val text: String) : StreamEvent()

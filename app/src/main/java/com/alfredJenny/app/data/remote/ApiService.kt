@@ -39,6 +39,20 @@ interface ApiService {
     @POST("voice/speak")
     suspend fun speak(@Body request: VoiceSpeakRequestDto): Response<VoiceSpeakResponseDto>
 
+    // ── Voice browser ────────────────────────────────────────────────────────
+
+    @GET("voice/voices")
+    suspend fun getVoices(@Query("api_key") apiKey: String? = null): Response<VoicesResponseDto>
+
+    @POST("voice/preview/{voiceId}")
+    suspend fun previewVoice(
+        @Path("voiceId") voiceId: String,
+        @Body request: VoicePreviewRequestDto,
+    ): Response<VoicePreviewResponseDto>
+
+    @GET("voice/subscription")
+    suspend fun getVoiceSubscription(@Query("api_key") apiKey: String? = null): Response<VoiceSubscriptionDto>
+
     // ── Providers ─────────────────────────────────────────────────────────────
 
     @GET("providers")

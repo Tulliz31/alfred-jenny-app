@@ -313,6 +313,46 @@ data class TestProviderResponseDto(
     @Json(name = "provider") val provider: String,
 )
 
+// ── ElevenLabs voice browser ──────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class ElevenLabsVoiceDto(
+    @Json(name = "voice_id")    val voiceId: String,
+    @Json(name = "name")        val name: String,
+    @Json(name = "category")    val category: String = "",
+    @Json(name = "description") val description: String = "",
+    @Json(name = "preview_url") val previewUrl: String = "",
+    @Json(name = "accent")      val accent: String = "",
+    @Json(name = "gender")      val gender: String = "",
+    @Json(name = "age")         val age: String = "",
+    @Json(name = "use_case")    val useCase: String = "",
+)
+
+@JsonClass(generateAdapter = true)
+data class VoicesResponseDto(
+    @Json(name = "voices") val voices: List<ElevenLabsVoiceDto>,
+)
+
+@JsonClass(generateAdapter = true)
+data class VoicePreviewRequestDto(
+    @Json(name = "api_key") val apiKey: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class VoicePreviewResponseDto(
+    @Json(name = "audio_base64") val audioBase64: String,
+    @Json(name = "format")       val format: String = "mp3",
+    @Json(name = "voice_id")     val voiceId: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class VoiceSubscriptionDto(
+    @Json(name = "tier")             val tier: String = "free",
+    @Json(name = "character_count")  val characterCount: Int = 0,
+    @Json(name = "character_limit")  val characterLimit: Int = 10000,
+    @Json(name = "next_reset")       val nextReset: Long = 0,
+)
+
 // ── API error ────────────────────────────────────────────────────────────────
 
 @JsonClass(generateAdapter = true)

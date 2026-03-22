@@ -132,8 +132,6 @@ class JennyViewModel @Inject constructor(
                     avatarState = AlfredAvatarState.THINKING)
         }
 
-        var ttsSentTriggered = false
-
         viewModelScope.launch {
             chatRepository.streamMessage(
                 sessionId = JENNY_SESSION_ID,
@@ -150,14 +148,6 @@ class JennyViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(streamingContent = newContent,
                                     avatarState = deriveAvatarState(it.isListening, true, it.isSpeaking, true))
-                        }
-                        if (!ttsSentTriggered && _uiState.value.voiceEnabled) {
-                            val end = newContent.indexOfFirst { c -> c in ".!?;" }
-                            if (end > 15) {
-                                ttsSentTriggered = true
-                                speakReply(newContent.substring(0, end + 1))
-                                _uiState.update { it.copy(avatarState = AlfredAvatarState.TALKING) }
-                            }
                         }
                     }
                     is StreamEvent.ProviderAnnounced -> {
@@ -186,13 +176,13 @@ class JennyViewModel @Inject constructor(
                             delay(5000)
                             _uiState.update { it.copy(eyeEmotion = EyeState.OPEN) }
                         }
+                        if (prefs.voiceEnabled) speakReply(event.fullText)
                         // Outfit auto-detection from AI reply (skip user-text triggered changes)
                         if (prefs.jennyAutoOutfit) {
                             OutfitDetector.detect(userText = "", aiText = event.fullText)?.let { change ->
                                 if (change.outfit != _uiState.value.outfit) {
                                     setOutfit(change.outfit)
                                     _uiState.update { it.copy(outfitToast = change.phrase) }
-                                    if (_uiState.value.voiceEnabled) speakReply(change.phrase)
                                     viewModelScope.launch {
                                         delay(3000)
                                         _uiState.update { it.copy(outfitToast = null) }

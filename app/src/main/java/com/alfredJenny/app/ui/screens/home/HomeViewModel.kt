@@ -144,8 +144,6 @@ class HomeViewModel @Inject constructor(
                     avatarState = AlfredAvatarState.THINKING)
         }
 
-        var ttsSentTriggered = false
-
         viewModelScope.launch {
             chatRepository.streamMessage(
                 sessionId = sessionId,
@@ -164,15 +162,6 @@ class HomeViewModel @Inject constructor(
                                 streamingContent = newContent,
                                 avatarState = deriveAvatarState(it.isListening, true, it.isSpeaking, true)
                             )
-                        }
-                        // TTS: fire after first complete sentence
-                        if (!ttsSentTriggered && _uiState.value.voiceEnabled) {
-                            val firstSentenceEnd = newContent.indexOfFirst { c -> c in ".!?;" }
-                            if (firstSentenceEnd > 15) {
-                                ttsSentTriggered = true
-                                speakReply(newContent.substring(0, firstSentenceEnd + 1))
-                                _uiState.update { it.copy(avatarState = AlfredAvatarState.TALKING) }
-                            }
                         }
                     }
                     is StreamEvent.ProviderAnnounced -> {
@@ -197,6 +186,7 @@ class HomeViewModel @Inject constructor(
                                     activeProvider = event.providerId,
                                     avatarState = if (it.voiceEnabled) AlfredAvatarState.TALKING else AlfredAvatarState.IDLE)
                         }
+                        if (prefs.voiceEnabled) speakReply(fullText)
                     }
                     is StreamEvent.CommandExecuted -> {
                         val icon = actionIcon(event.action)

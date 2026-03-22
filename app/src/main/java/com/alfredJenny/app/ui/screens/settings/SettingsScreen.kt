@@ -59,6 +59,8 @@ fun SettingsScreen(
     onOpenJennyAvatar: () -> Unit = {},
     onOpenJennyAI: () -> Unit = {},
     onOpenAlfredAI: () -> Unit = {},
+    onOpenAlfredVoice: () -> Unit = {},
+    onOpenJennyVoice: () -> Unit = {},
     onLogout: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -192,12 +194,12 @@ fun SettingsScreen(
                 when (selectedSection) {
                     SettingsSection.GENERALE    -> GeneraleSection(state, viewModel, onOpenAvatarImport, onOpenAlfredAI)
                     SettingsSection.PROVIDER_AI -> ProviderAiSection(state, viewModel)
-                    SettingsSection.VOCE        -> VoceSection(state, viewModel)
+                    SettingsSection.VOCE        -> VoceSection(state, viewModel, onOpenAlfredVoice)
                     SettingsSection.MEMORIA     -> MemoriaSection(state, viewModel)
                     SettingsSection.AVANZATE    -> AvanzateSection(state, viewModel)
                     SettingsSection.ACCOUNT     -> AccountSection(state, viewModel, onLogout)
                     SettingsSection.SMART_HOME  -> SmartHomeAdminSection(state, viewModel)
-                    SettingsSection.SERVIZIO    -> ServizioSection(state, viewModel, onOpenJennyAvatar, onOpenJennyAI)
+                    SettingsSection.SERVIZIO    -> ServizioSection(state, viewModel, onOpenJennyAvatar, onOpenJennyAI, onOpenJennyVoice)
                     null -> {}
                 }
             }
@@ -641,7 +643,7 @@ private fun ProviderStat(icon: ImageVector, label: String) {
 // ── Voce ──────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun VoceSection(state: SettingsUiState, viewModel: SettingsViewModel) {
+private fun VoceSection(state: SettingsUiState, viewModel: SettingsViewModel, onOpenAlfredVoice: () -> Unit = {}) {
     var showElevenKey by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         SectionLabel("Sintesi vocale (ElevenLabs)")
@@ -667,16 +669,27 @@ private fun VoceSection(state: SettingsUiState, viewModel: SettingsViewModel) {
         modifier = Modifier.fillMaxWidth(),
         enabled = state.preferences.voiceEnabled, colors = outlinedColors(), singleLine = true
     )
-    OutlinedTextField(
-        value = state.preferences.voiceId,
-        onValueChange = viewModel::onVoiceIdChange,
-        label = { Text("Voice ID Alfred") },
-        placeholder = { Text("pNInz6obpgDQGcFmaJgB  (Adam)", color = OnSurfaceVariant) },
-        modifier = Modifier.fillMaxWidth(),
-        enabled = state.preferences.voiceEnabled, colors = outlinedColors(), singleLine = true
-    )
-    Text("Adam (default): pNInz6obpgDQGcFmaJgB",
-        style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+    HorizontalDivider(color = SurfaceVariant)
+    SectionLabel("Voce Alfred")
+    if (state.preferences.voiceId.isNotBlank()) {
+        Surface(shape = RoundedCornerShape(8.dp), color = AlfredBlue.copy(0.1f), modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Mic, null, tint = AlfredBlueLight, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Voice ID: ${state.preferences.voiceId}", color = OnBackground, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            }
+        }
+    }
+    OutlinedButton(
+        onClick = onOpenAlfredVoice,
+        modifier = Modifier.fillMaxWidth().height(52.dp),
+        enabled = state.preferences.voiceEnabled,
+        border = androidx.compose.foundation.BorderStroke(1.dp, AlfredBlueLight)
+    ) {
+        Icon(Icons.Default.RecordVoiceOver, null, tint = AlfredBlueLight, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Sfoglia voci Alfred →", fontWeight = FontWeight.SemiBold, color = AlfredBlueLight)
+    }
     SaveButton(viewModel)
 }
 
@@ -880,7 +893,7 @@ private fun AccountRow(label: String, value: String) {
 // ── Servizio ──────────────────────────────────────────────────────────────────
 
 @Composable
-private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel, onOpenJennyAvatar: () -> Unit, onOpenJennyAI: () -> Unit = {}) {
+private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel, onOpenJennyAvatar: () -> Unit, onOpenJennyAI: () -> Unit = {}, onOpenJennyVoice: () -> Unit = {}) {
     SectionLabel("Companion Jenny")
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -899,16 +912,25 @@ private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel
     }
     HorizontalDivider(color = SurfaceVariant)
     SectionLabel("Voce Jenny")
-    OutlinedTextField(
-        value = state.preferences.jennyVoiceId,
-        onValueChange = viewModel::onJennyVoiceIdChange,
-        label = { Text("Voice ID Jenny") },
-        placeholder = { Text("EXAVITQu4vr4xnSDxMaL  (Bella)", color = OnSurfaceVariant) },
-        modifier = Modifier.fillMaxWidth(),
-        enabled = state.preferences.jennyEnabled, colors = outlinedColors(), singleLine = true
-    )
-    Text("Bella (default): EXAVITQu4vr4xnSDxMaL",
-        style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+    if (state.preferences.jennyVoiceId.isNotBlank()) {
+        Surface(shape = RoundedCornerShape(8.dp), color = JennyPurple.copy(0.1f), modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Mic, null, tint = JennyPurpleLight, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Voice ID: ${state.preferences.jennyVoiceId}", color = OnBackground, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            }
+        }
+    }
+    OutlinedButton(
+        onClick = onOpenJennyVoice,
+        modifier = Modifier.fillMaxWidth().height(52.dp),
+        enabled = state.preferences.jennyEnabled,
+        border = androidx.compose.foundation.BorderStroke(1.dp, JennyPurpleLight)
+    ) {
+        Icon(Icons.Default.RecordVoiceOver, null, tint = JennyPurpleLight, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Sfoglia voci Jenny →", fontWeight = FontWeight.SemiBold, color = JennyPurpleLight)
+    }
     HorizontalDivider(color = SurfaceVariant)
     SectionLabel("Personalità Jenny")
     val level = state.preferences.jennyPersonalityLevel

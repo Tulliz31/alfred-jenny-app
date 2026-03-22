@@ -14,6 +14,7 @@ import com.alfredJenny.app.data.repository.AuthRepository
 import com.alfredJenny.app.ui.screens.avatar.AvatarManagerScreen
 import com.alfredJenny.app.ui.screens.jenny.JennyAIScreen
 import com.alfredJenny.app.ui.screens.settings.AIProviderConfigScreen
+import com.alfredJenny.app.ui.screens.settings.VoiceBrowserScreen
 import com.alfredJenny.app.ui.screens.login.LoginScreen
 import com.alfredJenny.app.ui.screens.login.LoginViewModel
 import com.alfredJenny.app.ui.screens.main.MainScreen
@@ -35,6 +36,7 @@ object Routes {
     const val AVATAR_JENNY        = "avatar_manager?mode=jenny"
     const val JENNY_AI            = "jenny_ai"
     const val AI_PROVIDER_CONFIG  = "ai_provider/{companionId}"
+    const val VOICE_BROWSER       = "voice_browser/{companionId}"
 }
 
 // ── Transition presets ────────────────────────────────────────────────────────
@@ -126,10 +128,12 @@ fun AppNavigation(
         ) {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
-                onOpenAvatarImport = { navController.navigate(Routes.AVATAR_ALFRED) },
-                onOpenJennyAvatar  = { navController.navigate(Routes.AVATAR_JENNY) },
-                onOpenJennyAI      = { navController.navigate("ai_provider/jenny") },
-                onOpenAlfredAI     = { navController.navigate("ai_provider/alfred") },
+                onOpenAvatarImport   = { navController.navigate(Routes.AVATAR_ALFRED) },
+                onOpenJennyAvatar    = { navController.navigate(Routes.AVATAR_JENNY) },
+                onOpenJennyAI        = { navController.navigate("ai_provider/jenny") },
+                onOpenAlfredAI       = { navController.navigate("ai_provider/alfred") },
+                onOpenAlfredVoice    = { navController.navigate("voice_browser/alfred") },
+                onOpenJennyVoice     = { navController.navigate("voice_browser/jenny") },
                 onLogout = { navigateToLogin() }
             )
         }
@@ -158,6 +162,21 @@ fun AppNavigation(
             popExitTransition  = { popExit },
         ) {
             AIProviderConfigScreen(onBack = { navController.popBackStack() })
+        }
+
+        // ── Voice browser ────────────────────────────────────────────────────
+        composable(
+            route = Routes.VOICE_BROWSER,
+            arguments = listOf(navArgument("companionId") {
+                type = NavType.StringType
+                defaultValue = "alfred"
+            }),
+            enterTransition = { enterSlide },
+            exitTransition  = { exitSlide },
+            popEnterTransition = { popEnter },
+            popExitTransition  = { popExit },
+        ) {
+            VoiceBrowserScreen(onBack = { navController.popBackStack() })
         }
 
         // ── Avatar manager ────────────────────────────────────────────────────
