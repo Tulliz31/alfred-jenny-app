@@ -1,8 +1,12 @@
 package com.alfredJenny.app.ui.screens.avatar
 
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import com.alfredJenny.app.permissions.PermissionUtils
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -132,6 +136,19 @@ private fun AlfredAvatarTab(
         pendingFilename = null
     }
 
+    val context = LocalContext.current
+    val imagePermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* permission result — user can retry by tapping again */ }
+
+    fun launchImagePickerWithPermission(action: () -> Unit) {
+        if (PermissionUtils.areImagesGranted(context)) {
+            action()
+        } else {
+            imagePermLauncher.launch(PermissionUtils.IMAGE_PERMISSIONS)
+        }
+    }
+
     if (state.isLoading) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = AlfredBlueLight)
@@ -185,7 +202,7 @@ private fun AlfredAvatarTab(
                         slot = slot,
                         onImport = {
                             pendingFilename = slot.filename
-                            launcher.launch("image/*")
+                            launchImagePickerWithPermission { launcher.launch("image/*") }
                         },
                         onRemove = { viewModel.removeAlfredFile(slot.filename) },
                     )
@@ -293,6 +310,19 @@ private fun JennyAvatarTab(
         pendingCustomIndex = null
     }
 
+    val context = LocalContext.current
+    val imagePermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* permission result — user can retry by tapping again */ }
+
+    fun launchImagePickerWithPermission(action: () -> Unit) {
+        if (PermissionUtils.areImagesGranted(context)) {
+            action()
+        } else {
+            imagePermLauncher.launch(PermissionUtils.IMAGE_PERMISSIONS)
+        }
+    }
+
     if (state.isLoading) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = JennyPurpleLight)
@@ -314,7 +344,7 @@ private fun JennyAvatarTab(
             onImport = { filename ->
                 pendingFilename = filename
                 pendingCustomIndex = null
-                launcher.launch("image/*")
+                launchImagePickerWithPermission { launcher.launch("image/*") }
             },
             onRemove = viewModel::removeJennyFile,
         )
@@ -328,7 +358,7 @@ private fun JennyAvatarTab(
             onImport = { filename ->
                 pendingFilename = filename
                 pendingCustomIndex = null
-                launcher.launch("image/*")
+                launchImagePickerWithPermission { launcher.launch("image/*") }
             },
             onRemove = viewModel::removeJennyFile,
         )
@@ -342,7 +372,7 @@ private fun JennyAvatarTab(
             onImport = { filename ->
                 pendingFilename = filename
                 pendingCustomIndex = null
-                launcher.launch("image/*")
+                launchImagePickerWithPermission { launcher.launch("image/*") }
             },
             onRemove = viewModel::removeJennyFile,
         )
@@ -370,7 +400,7 @@ private fun JennyAvatarTab(
                 onImport = {
                     pendingFilename = null
                     pendingCustomIndex = slot.index
-                    launcher.launch("image/*")
+                    launchImagePickerWithPermission { launcher.launch("image/*") }
                 },
                 onRemove = { viewModel.removeCustomOutfit(slot.index) },
             )

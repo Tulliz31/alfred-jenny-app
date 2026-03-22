@@ -40,7 +40,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alfredJenny.app.data.local.ConversationEntity
 import com.alfredJenny.app.data.model.CompanionDto
 import com.alfredJenny.app.data.model.VoiceMode
+import com.alfredJenny.app.permissions.PermissionNeeded
+import com.alfredJenny.app.permissions.PermissionUtils
 import com.alfredJenny.app.ui.components.AlfredAvatarView
+import com.alfredJenny.app.ui.components.PermissionRationaleDialog
 import com.alfredJenny.app.ui.theme.*
 import kotlinx.coroutines.delay
 
@@ -64,6 +67,24 @@ fun HomeScreen(
         ActivityResultContracts.RequestPermission()
     ) { granted -> hasAudioPermission = granted }
 
+    // ── Calendar & Notification permission launchers ──────────────────────────
+    val calendarPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        val granted = results.values.all { it }
+        viewModel.onCalendarPermissionResult(granted)
+    }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        val granted = results.values.all { it }
+        viewModel.onNotificationPermissionResult(granted)
+    }
+    var showPermissionRationale by remember { mutableStateOf(false) }
+    var rationaleTitle by remember { mutableStateOf("") }
+    var rationaleMessage by remember { mutableStateOf("") }
+    var onRationaleSettings by remember { mutableStateOf<(() -> Unit)>({}) }
+
     // Auto-scroll: on new messages or while streaming
     val totalItems = state.messages.size +
             (if (state.isLoading && state.streamingContent.isBlank()) 1 else 0) +
@@ -77,6 +98,23 @@ fun HomeScreen(
         if (state.fallbackNotice != null) {
             delay(3000)
             viewModel.dismissFallbackNotice()
+        }
+    }
+
+    // ── Permission request triggers ───────────────────────────────────────────
+    LaunchedEffect(state.permissionNeeded) {
+        when (state.permissionNeeded) {
+            PermissionNeeded.CALENDAR -> calendarPermissionLauncher.launch(PermissionUtils.CALENDAR_PERMISSIONS)
+            PermissionNeeded.NOTIFICATION -> notificationPermissionLauncher.launch(PermissionUtils.NOTIFICATION_PERMISSIONS)
+            PermissionNeeded.NONE -> Unit
+        }
+    }
+
+    // Auto-dismiss permission denied snackbar
+    LaunchedEffect(state.permissionDenied) {
+        if (state.permissionDenied != null) {
+            delay(4000)
+            viewModel.dismissPermissionDenied()
         }
     }
 
@@ -281,6 +319,33 @@ fun HomeScreen(
             ) {
                 Icon(Icons.Default.Send, contentDescription = "Invia", tint = OnBackground)
             }
+        }
+    }
+
+    // ── Permission rationale dialog ────────────────────────────────────────────
+    if (showPermissionRationale) {
+        PermissionRationaleDialog(
+            title = rationaleTitle,
+            message = rationaleMessage,
+            onOpenSettings = { onRationaleSettings(); showPermissionRationale = false },
+            onDismiss = { showPermissionRationale = false },
+        )
+    }
+
+    // ── Permission denied snackbar (floating) ─────────────────────────────────
+    state.permissionDenied?.let { msg ->
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            Snackbar(
+                modifier = Modifier.padding(16.dp),
+                action = {
+                    TextButton(onClick = { PermissionUtils.openAppSettings(context); viewModel.dismissPermissionDenied() }) {
+                        Text("Apri", color = AlfredBlueLight)
+                    }
+                },
+                dismissAction = { IconButton(onClick = viewModel::dismissPermissionDenied) {
+                    Icon(Icons.Default.Close, contentDescription = null)
+                }}
+            ) { Text(msg) }
         }
     }
 }

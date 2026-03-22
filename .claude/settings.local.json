@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(find /c/Users/Fabio/progetti/AlfredJenny -not -path */build/* -not -path */.gradle/* -not -path */.idea/* -not -path */.venv/* -not -path */__pycache__/* -type d)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(./gradlew assembleDebug)",
+      "Bash(./gradlew :app:assembleDebug)",
+      "Bash(./gradlew assembleDebug --stacktrace)",
+      "Bash(python -c \"import sys,json; d=json.loads\\(sys.stdin.read\\(\\)\\); print\\(d.get\\(''''type'''',''''?''''\\), d.get\\(''''message'''',{}\\).get\\(''''stop_reason'''',''''''''\\)\\)\")",
+      "Bash(python -c \"import sys,json; d=json.loads\\(sys.stdin.read\\(\\)\\); print\\(d.get\\(''''type''''\\), d.get\\(''''message'''',{}\\).get\\(''''stop_reason'''',''''running''''\\)\\)\")",
+      "Bash(python -c \"import sys,json; d=json.loads\\(sys.stdin.read\\(\\)\\); r=d.get\\(''''message'''',{}\\); print\\(r.get\\(''''stop_reason'''',''''running''''\\), r.get\\(''''role'''',''''?''''\\)\\)\")"
     ]
   }
 }

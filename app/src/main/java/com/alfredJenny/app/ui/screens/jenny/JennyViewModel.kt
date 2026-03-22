@@ -24,6 +24,8 @@ import com.alfredJenny.app.ui.components.EyeState
 import com.alfredJenny.app.ui.components.JennyOutfit
 import com.alfredJenny.app.ui.components.OutfitDetector
 import com.alfredJenny.app.ui.components.OutfitManager
+import com.alfredJenny.app.permissions.PermissionNeeded
+import com.alfredJenny.app.permissions.PermissionUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
@@ -57,6 +59,8 @@ data class JennyUiState(
     val memoFeedback: String? = null,
     val pendingCalendarEvent: StreamEvent.EventRequested? = null,
     val calendarReadResult: String? = null,
+    val permissionNeeded: PermissionNeeded = PermissionNeeded.NONE,
+    val permissionDenied: String? = null,
 )
 
 @HiltViewModel
@@ -75,6 +79,10 @@ class JennyViewModel @Inject constructor(
     val uiState: StateFlow<JennyUiState> = _uiState
 
     private var prefs: UserPreferences = UserPreferences()
+
+    private var pendingEventForPermission: StreamEvent.EventRequested? = null
+    private var pendingReminderForPermission: Triple<String, String, String>? = null
+    private var pendingCalendarReadForPermission: String? = null
 
     init {
         viewModelScope.launch {
@@ -232,15 +240,20 @@ class JennyViewModel @Inject constructor(
                         _uiState.update { it.copy(memoFeedback = "⏰ Promemoria: ${event.text}") }
                     }
                     is StreamEvent.CalendarRead -> {
-                        viewModelScope.launch {
-                            val calId = prefs.defaultCalendarId
-                            if (calId < 0L) {
-                                _uiState.update { it.copy(calendarReadResult = "Nessun calendario selezionato.") }
-                                return@launch
+                        if (!PermissionUtils.areCalendarGranted(context)) {
+                            pendingCalendarReadForPermission = event.period
+                            _uiState.update { it.copy(permissionNeeded = PermissionNeeded.CALENDAR) }
+                        } else {
+                            viewModelScope.launch {
+                                val calId = prefs.defaultCalendarId
+                                if (calId < 0L) {
+                                    _uiState.update { it.copy(calendarReadResult = "Nessun calendario selezionato.") }
+                                    return@launch
+                                }
+                                val (startMs, endMs) = periodToRange(event.period)
+                                val events = calendarRepository.getEvents(calId, startMs, endMs)
+                                _uiState.update { it.copy(calendarReadResult = calendarRepository.formatEventsForDisplay(events)) }
                             }
-                            val (startMs, endMs) = periodToRange(event.period)
-                            val events = calendarRepository.getEvents(calId, startMs, endMs)
-                            _uiState.update { it.copy(calendarReadResult = calendarRepository.formatEventsForDisplay(events)) }
                         }
                     }
                 }
@@ -265,7 +278,52 @@ class JennyViewModel @Inject constructor(
     }
     fun dismissCalendarEvent() = _uiState.update { it.copy(pendingCalendarEvent = null) }
 
+    fun onCalendarPermissionResult(granted: Boolean) {
+        _uiState.update { it.copy(permissionNeeded = PermissionNeeded.NONE) }
+        if (granted) {
+            pendingEventForPermission?.let { ev ->
+                pendingEventForPermission = null
+                viewModelScope.launch { insertCalendarEvent(ev) }
+            }
+            pendingCalendarReadForPermission?.let { period ->
+                pendingCalendarReadForPermission = null
+                viewModelScope.launch {
+                    val calId = prefs.defaultCalendarId
+                    if (calId >= 0L) {
+                        val (startMs, endMs) = periodToRange(period)
+                        val events = calendarRepository.getEvents(calId, startMs, endMs)
+                        _uiState.update { it.copy(calendarReadResult = calendarRepository.formatEventsForDisplay(events)) }
+                    }
+                }
+            }
+        } else {
+            pendingEventForPermission = null
+            pendingCalendarReadForPermission = null
+            _uiState.update { it.copy(permissionDenied = "Permesso Calendario negato — vai in Impostazioni") }
+        }
+    }
+
+    fun onNotificationPermissionResult(granted: Boolean) {
+        _uiState.update { it.copy(permissionNeeded = PermissionNeeded.NONE) }
+        if (granted) {
+            pendingReminderForPermission?.let { (text, date, time) ->
+                pendingReminderForPermission = null
+                scheduleReminder(text, date, time)
+            }
+        } else {
+            pendingReminderForPermission = null
+            _uiState.update { it.copy(permissionDenied = "Permesso Notifiche negato — vai in Impostazioni") }
+        }
+    }
+
+    fun dismissPermissionDenied() = _uiState.update { it.copy(permissionDenied = null) }
+
     private suspend fun insertCalendarEvent(ev: StreamEvent.EventRequested) {
+        if (!PermissionUtils.areCalendarGranted(context)) {
+            pendingEventForPermission = ev
+            _uiState.update { it.copy(permissionNeeded = PermissionNeeded.CALENDAR) }
+            return
+        }
         val calId = prefs.defaultCalendarId
         if (calId < 0L) {
             _uiState.update { it.copy(memoFeedback = "⚠️ Seleziona un calendario nelle impostazioni") }
@@ -278,6 +336,11 @@ class JennyViewModel @Inject constructor(
     }
 
     private fun scheduleReminder(text: String, date: String, time: String) {
+        if (!PermissionUtils.areNotificationsGranted(context)) {
+            pendingReminderForPermission = Triple(text, date, time)
+            _uiState.update { it.copy(permissionNeeded = PermissionNeeded.NOTIFICATION) }
+            return
+        }
         val triggerMs = calendarRepository.parseEventTimeMs(date, time)
         val delayMs = triggerMs - System.currentTimeMillis()
         if (delayMs <= 0) return
