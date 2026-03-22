@@ -43,6 +43,7 @@ data class UserPreferences(
     val onboardingCompleted: Boolean = false,
     // Jenny outfit (CASUAL / SERATA / BIKINI)
     val jennyOutfit: String = "CASUAL",
+    val jennyAutoOutfit: Boolean = true,
 )
 
 /** Provider info for local display (mirrors backend ProviderInfo). */

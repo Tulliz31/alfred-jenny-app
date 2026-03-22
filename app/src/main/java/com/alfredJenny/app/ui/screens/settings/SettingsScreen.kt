@@ -28,6 +28,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alfredJenny.app.data.model.AIProvider
 import com.alfredJenny.app.data.model.ProviderInfo
 import com.alfredJenny.app.data.remote.DEFAULT_BASE_URL
+import androidx.compose.foundation.Image
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import com.alfredJenny.app.ui.components.JennyOutfit
+import com.alfredJenny.app.ui.components.rememberAssetBitmap
 import com.alfredJenny.app.ui.theme.*
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -713,6 +718,99 @@ private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel
     Text(personalityLabel, color = JennyPurpleLight, style = MaterialTheme.typography.bodySmall,
         fontWeight = FontWeight.Medium)
     HorizontalDivider(color = SurfaceVariant)
+
+    // ── Outfit automatico ─────────────────────────────────────────────────────
+    SectionLabel("Outfit automatico")
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Cambio outfit automatico", color = OnBackground, fontWeight = FontWeight.Medium)
+            Text("Jenny cambia abito in base al contesto della conversazione",
+                style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+        }
+        Switch(
+            checked = state.preferences.jennyAutoOutfit,
+            onCheckedChange = viewModel::onJennyAutoOutfitChange,
+            colors = SwitchDefaults.colors(checkedTrackColor = JennyPurple, checkedThumbColor = JennyPurpleLight)
+        )
+    }
+
+    Spacer(Modifier.height(12.dp))
+    Text("Outfit attivo", color = OnSurfaceVariant, style = MaterialTheme.typography.labelSmall,
+        modifier = Modifier.padding(bottom = 8.dp))
+
+    // Current outfit preview + force buttons
+    val currentOutfit = runCatching { JennyOutfit.valueOf(state.preferences.jennyOutfit) }
+        .getOrDefault(JennyOutfit.CASUAL)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        JennyOutfit.values().forEach { o ->
+            val thumb = rememberAssetBitmap(o.assetFile, sampleSize = 4)
+            val isActive = (o == currentOutfit)
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .height(90.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isActive) JennyPurple.copy(alpha = 0.4f) else SurfaceVariant)
+                        .border(
+                            width = if (isActive) 2.dp else 0.5.dp,
+                            color = if (isActive) JennyPurpleLight else SurfaceVariant,
+                            shape = RoundedCornerShape(10.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (thumb != null) {
+                        Image(
+                            bitmap = thumb,
+                            contentDescription = o.label,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    if (isActive) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = JennyPurpleLight,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(4.dp)
+                                .size(18.dp)
+                        )
+                    }
+                }
+                OutlinedButton(
+                    onClick = { viewModel.forceJennyOutfit(o) },
+                    modifier = Modifier.fillMaxWidth().height(36.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp, if (isActive) JennyPurpleLight else SurfaceVariant
+                    ),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                ) {
+                    Text(
+                        text = o.label,
+                        fontSize = 11.sp,
+                        color = if (isActive) JennyPurpleLight else OnSurfaceVariant,
+                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+            }
+        }
+    }
+
+    HorizontalDivider(color = SurfaceVariant, modifier = Modifier.padding(top = 12.dp))
     SaveButton(viewModel)
     HorizontalDivider(color = SurfaceVariant)
     SectionLabel("Gestione dati")

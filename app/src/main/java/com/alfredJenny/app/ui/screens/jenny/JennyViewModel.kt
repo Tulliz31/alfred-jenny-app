@@ -15,6 +15,7 @@ import com.alfredJenny.app.ui.components.AlfredAvatarState
 import com.alfredJenny.app.ui.components.EmotionDetector
 import com.alfredJenny.app.ui.components.EyeState
 import com.alfredJenny.app.ui.components.JennyOutfit
+import com.alfredJenny.app.ui.components.OutfitDetector
 import com.alfredJenny.app.ui.components.OutfitManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
@@ -43,6 +44,7 @@ data class JennyUiState(
     val audioAmplitude: Float = 0f,
     val outfit: JennyOutfit = JennyOutfit.CASUAL,
     val eyeEmotion: EyeState = EyeState.OPEN,
+    val outfitToast: String? = null,
 )
 
 @HiltViewModel
@@ -113,6 +115,17 @@ class JennyViewModel @Inject constructor(
         val text = (overrideText ?: state.inputText).trim()
         if (text.isBlank() || state.isLoading) return
 
+        // Outfit auto-detection on user text
+        if (prefs.jennyAutoOutfit) {
+            OutfitDetector.detect(text)?.let { change ->
+                if (change.outfit != _uiState.value.outfit) {
+                    setOutfit(change.outfit)
+                    _uiState.update { it.copy(outfitToast = change.phrase) }
+                    viewModelScope.launch { delay(3000); _uiState.update { it.copy(outfitToast = null) } }
+                }
+            }
+        }
+
         _uiState.update {
             it.copy(inputText = "", isLoading = true, streamingContent = "",
                     error = null, fallbackNotice = null,
@@ -173,6 +186,20 @@ class JennyViewModel @Inject constructor(
                             delay(5000)
                             _uiState.update { it.copy(eyeEmotion = EyeState.OPEN) }
                         }
+                        // Outfit auto-detection from AI reply (skip user-text triggered changes)
+                        if (prefs.jennyAutoOutfit) {
+                            OutfitDetector.detect(userText = "", aiText = event.fullText)?.let { change ->
+                                if (change.outfit != _uiState.value.outfit) {
+                                    setOutfit(change.outfit)
+                                    _uiState.update { it.copy(outfitToast = change.phrase) }
+                                    if (_uiState.value.voiceEnabled) speakReply(change.phrase)
+                                    viewModelScope.launch {
+                                        delay(3000)
+                                        _uiState.update { it.copy(outfitToast = null) }
+                                    }
+                                }
+                            }
+                        }
                     }
                     is StreamEvent.Error -> {
                         _uiState.update {
@@ -190,8 +217,9 @@ class JennyViewModel @Inject constructor(
         viewModelScope.launch { preferencesRepository.saveJennyOutfit(outfit.name) }
     }
 
-    fun dismissError()         = _uiState.update { it.copy(error = null, voiceError = null) }
-    fun dismissFallbackNotice()= _uiState.update { it.copy(fallbackNotice = null) }
+    fun dismissError()          = _uiState.update { it.copy(error = null, voiceError = null) }
+    fun dismissFallbackNotice() = _uiState.update { it.copy(fallbackNotice = null) }
+    fun dismissOutfitToast()    = _uiState.update { it.copy(outfitToast = null) }
 
     fun toggleVoice() {
         val enabled = !_uiState.value.voiceEnabled

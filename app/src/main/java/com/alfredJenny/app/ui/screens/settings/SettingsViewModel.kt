@@ -6,6 +6,7 @@ import com.alfredJenny.app.data.model.AIProvider
 import com.alfredJenny.app.data.model.ProviderInfo
 import com.alfredJenny.app.data.model.SmartHomeDevice
 import com.alfredJenny.app.data.model.UserPreferences
+import com.alfredJenny.app.ui.components.JennyOutfit
 import com.alfredJenny.app.data.remote.DEFAULT_BASE_URL
 import com.alfredJenny.app.data.remote.TokenStore
 import com.alfredJenny.app.data.repository.AuthRepository
@@ -72,9 +73,15 @@ class SettingsViewModel @Inject constructor(
 
     // ── Jenny / Servizio ──────────────────────────────────────────────────────
 
-    fun onJennyEnabledChange(enabled: Boolean)   { update { copy(jennyEnabled = enabled) } }
-    fun onJennyVoiceIdChange(id: String)         { update { copy(jennyVoiceId = id) } }
-    fun onJennyPersonalityLevelChange(level: Int){ update { copy(jennyPersonalityLevel = level) } }
+    fun onJennyEnabledChange(enabled: Boolean)      { update { copy(jennyEnabled = enabled) } }
+    fun onJennyVoiceIdChange(id: String)            { update { copy(jennyVoiceId = id) } }
+    fun onJennyPersonalityLevelChange(level: Int)   { update { copy(jennyPersonalityLevel = level) } }
+    fun onJennyAutoOutfitChange(enabled: Boolean)   { update { copy(jennyAutoOutfit = enabled) } }
+
+    fun forceJennyOutfit(outfit: JennyOutfit) {
+        update { copy(jennyOutfit = outfit.name) }
+        viewModelScope.launch { preferencesRepository.saveJennyOutfit(outfit.name) }
+    }
 
     // ── Memory ────────────────────────────────────────────────────────────────
 
@@ -213,6 +220,7 @@ class SettingsViewModel @Inject constructor(
             preferencesRepository.saveDebugMode(p.debugMode)
             preferencesRepository.saveFallbackEnabled(p.providerFallbackEnabled)
             preferencesRepository.saveSmartHomeEnabled(p.smartHomeEnabled)
+            preferencesRepository.saveJennyAutoOutfit(p.jennyAutoOutfit)
             _uiState.update { it.copy(isSaved = true) }
         }
     }

@@ -164,8 +164,20 @@ fun JennyAvatarView(
     }
 
     // ── Bitmap preloading ─────────────────────────────────────────────────────
-    // Body — full-res, reload when outfit changes
-    val bodyBitmap = rememberAssetBitmap(outfit.assetFile)
+    // Body — all outfits preloaded upfront so Crossfade(300ms) has both bitmaps ready
+    val bodyBitmaps = remember { mutableStateMapOf<JennyOutfit, ImageBitmap>() }
+    LaunchedEffect(Unit) {
+        JennyOutfit.values().forEach { o ->
+            val bmp = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.assets.open("jenny/${o.assetFile}").use { s ->
+                        BitmapFactory.decodeStream(s)?.asImageBitmap()
+                    }
+                }.getOrNull()
+            }
+            if (bmp != null) bodyBitmaps[o] = bmp
+        }
+    }
 
     // Eyes — preloaded for current effective state (Crossfade handles transitions)
     val eyeBitmap = rememberAssetBitmap(effectiveEyeState.assetFile)
@@ -186,22 +198,28 @@ fun JennyAvatarView(
             val bW = maxWidth
             val bH = maxHeight
 
-            // Layer 1 — Body (glow + breathing + react)
-            bodyBitmap?.let { bmp ->
-                Image(
-                    bitmap = bmp,
-                    contentDescription = "Jenny",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .jennyBodyGlow()
-                        .graphicsLayer {
-                            translationX = parallaxX.value * 0.08f
-                            translationY = breathOffset + parallaxY.value * 0.04f
-                            scaleX = reactScale.value
-                            scaleY = reactScale.value
-                        }
-                )
+            // Layer 1 — Body (glow + breathing + react) — Crossfade 300ms on outfit change
+            Crossfade(
+                targetState = outfit,
+                animationSpec = tween(300),
+                label = "bodyOutfit"
+            ) { currentOutfit ->
+                bodyBitmaps[currentOutfit]?.let { bmp ->
+                    Image(
+                        bitmap = bmp,
+                        contentDescription = "Jenny",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .jennyBodyGlow()
+                            .graphicsLayer {
+                                translationX = parallaxX.value * 0.08f
+                                translationY = breathOffset + parallaxY.value * 0.04f
+                                scaleX = reactScale.value
+                                scaleY = reactScale.value
+                            }
+                    )
+                }
             }
 
             // Layer 2 — Eyes (Crossfade 150 ms between states)

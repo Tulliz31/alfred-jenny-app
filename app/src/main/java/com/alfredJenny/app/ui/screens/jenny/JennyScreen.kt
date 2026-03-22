@@ -167,6 +167,24 @@ fun JennyScreen(
                 onOutfitChange = viewModel::setOutfit,
                 modifier = Modifier.fillMaxSize()
             )
+            // Outfit change toast
+            val toast = state.outfitToast
+            if (toast != null) {
+                Surface(
+                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
+                    color = JennyPurple.copy(alpha = 0.88f),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                ) {
+                    Text(
+                        text = toast,
+                        color = OnBackground,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                    )
+                }
+            }
         }
 
         // ── Voice mode selector ───────────────────────────────────────────────
