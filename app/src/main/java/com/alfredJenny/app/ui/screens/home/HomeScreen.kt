@@ -53,7 +53,6 @@ fun HomeScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val context = LocalContext.current
-    var avatarExpanded by remember { mutableStateOf(true) }
 
     var hasAudioPermission by remember {
         mutableStateOf(
@@ -89,13 +88,11 @@ fun HomeScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { avatarExpanded = !avatarExpanded }) {
-                Box(contentAlignment = Alignment.Center) {
-                    CompanionAvatar(
-                        companion = state.companions.firstOrNull { it.id == state.selectedCompanionId },
-                        isThinking = state.isLoading
-                    )
-                }
+            Box(contentAlignment = Alignment.Center) {
+                CompanionAvatar(
+                    companion = state.companions.firstOrNull { it.id == state.selectedCompanionId },
+                    isThinking = state.isLoading
+                )
             }
             Spacer(Modifier.width(4.dp))
             Column(Modifier.weight(1f)) {
@@ -167,15 +164,19 @@ fun HomeScreen(
             }
         }
 
-        // ── Avatar panel (collapsible) ────────────────────────────────────────
-        AnimatedVisibility(visible = avatarExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-            Box(
-                modifier = Modifier.fillMaxWidth().background(Background),
-                contentAlignment = Alignment.Center
-            ) {
-                if (state.isSpeaking) SpeakingWave()
-                AlfredAvatarView(state = state.avatarState)
-            }
+        // ── Avatar panel — Alfred centrato in alto, occupa 40% dello spazio flessibile ──
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(0.40f)
+                .background(Background),
+            contentAlignment = Alignment.Center
+        ) {
+            if (state.isSpeaking) SpeakingWave()
+            AlfredAvatarView(
+                state = state.avatarState,
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         // ── Voice mode selector ───────────────────────────────────────────────
@@ -201,7 +202,7 @@ fun HomeScreen(
             isRefreshing = state.isRefreshing,
             onRefresh = viewModel::refresh,
             state = rememberPullToRefreshState(),
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(0.60f),
         ) {
             LazyColumn(
                 state = listState,
