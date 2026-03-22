@@ -57,6 +57,7 @@ fun SettingsScreen(
     onOpenAvatarImport: () -> Unit = {},
     onOpenJennyAvatar: () -> Unit = {},
     onOpenJennyAI: () -> Unit = {},
+    onOpenAlfredAI: () -> Unit = {},
     onLogout: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -188,7 +189,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 when (selectedSection) {
-                    SettingsSection.GENERALE    -> GeneraleSection(state, viewModel, onOpenAvatarImport)
+                    SettingsSection.GENERALE    -> GeneraleSection(state, viewModel, onOpenAvatarImport, onOpenAlfredAI)
                     SettingsSection.PROVIDER_AI -> ProviderAiSection(state, viewModel)
                     SettingsSection.VOCE        -> VoceSection(state, viewModel)
                     SettingsSection.MEMORIA     -> MemoriaSection(state, viewModel)
@@ -290,7 +291,7 @@ private fun SectionCard(section: SettingsSection, badge: String?, onClick: () ->
 // ── Generale ──────────────────────────────────────────────────────────────────
 
 @Composable
-private fun GeneraleSection(state: SettingsUiState, viewModel: SettingsViewModel, onOpenAvatarImport: () -> Unit) {
+private fun GeneraleSection(state: SettingsUiState, viewModel: SettingsViewModel, onOpenAvatarImport: () -> Unit, onOpenAlfredAI: () -> Unit = {}) {
     SectionLabel("Backend")
     OutlinedTextField(
         value = state.preferences.baseUrl,
@@ -312,6 +313,19 @@ private fun GeneraleSection(state: SettingsUiState, viewModel: SettingsViewModel
         Icon(Icons.Default.Face, contentDescription = null, tint = AlfredBlueLight, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text("Sostituisci avatar", fontWeight = FontWeight.SemiBold, color = AlfredBlueLight)
+    }
+    HorizontalDivider(color = SurfaceVariant)
+    SectionLabel("AI Dedicata Alfred")
+    Text("Configura un provider AI separato usato solo da Alfred.",
+        style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+    OutlinedButton(
+        onClick = onOpenAlfredAI,
+        modifier = Modifier.fillMaxWidth().height(52.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, AlfredBlueLight)
+    ) {
+        Icon(Icons.Default.SmartToy, contentDescription = null, tint = AlfredBlueLight, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Configura AI Alfred", fontWeight = FontWeight.SemiBold, color = AlfredBlueLight)
     }
     SaveButton(viewModel)
 }

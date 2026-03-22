@@ -252,6 +252,30 @@ data class TuyaConfigDto(
     @Json(name = "base_url") val baseUrl: String = "https://openapi.tuyaeu.com",
 )
 
+// ── Companion AI config ───────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class CompanionAIConfigDto(
+    @Json(name = "companion_id") val companionId: String = "",
+    @Json(name = "provider_type") val providerType: String = "openai",
+    @Json(name = "api_key") val apiKey: String = "",
+    @Json(name = "model_id") val modelId: String = "",
+    @Json(name = "base_url") val baseUrl: String? = null,
+    @Json(name = "enabled") val enabled: Boolean = false,
+    @Json(name = "use_global") val useGlobal: Boolean = true,
+)
+
+@JsonClass(generateAdapter = true)
+data class TestProviderRequestDto(
+    @Json(name = "config") val config: CompanionAIConfigDto,
+)
+
+@JsonClass(generateAdapter = true)
+data class TestProviderResponseDto(
+    @Json(name = "reply") val reply: String,
+    @Json(name = "provider") val provider: String,
+)
+
 // ── API error ────────────────────────────────────────────────────────────────
 
 @JsonClass(generateAdapter = true)

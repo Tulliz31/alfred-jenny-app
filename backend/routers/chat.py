@@ -92,7 +92,7 @@ async def _resolve_companion_and_prompt(body: ChatRequest, current_user: UserInD
     else:
         messages = list(body.messages)
 
-    # Resolve provider override (ignored when jenny_ai_config is active)
+    # Resolve provider override (used only when no companion config is active)
     provider: ProviderID | None = None
     if body.provider_override:
         try:
@@ -100,20 +100,42 @@ async def _resolve_companion_and_prompt(body: ChatRequest, current_user: UserInD
         except ValueError:
             pass
 
-    # Jenny dedicated AI config (takes precedence over provider_override)
-    jenny_config = body.jenny_ai_config if companion.id == "jenny" else None
+    # Resolve AI config for this companion
+    from models.provider import CompanionAIConfig
+    stored_config = ai_service.get_companion_config(companion.id)
 
-    return companion, system_prompt, messages, provider, jenny_config
+    if companion.id == "jenny":
+        # Request-level jenny_ai_config overrides stored config (backward compat)
+        jc = body.jenny_ai_config
+        if jc and jc.enabled and jc.api_key and jc.model_id:
+            ai_config = CompanionAIConfig(
+                companion_id="jenny",
+                provider_type=jc.provider_type,
+                api_key=jc.api_key,
+                model_id=jc.model_id,
+                base_url=jc.base_url or None,
+                enabled=True,
+                use_global=False,
+            )
+        elif stored_config.use_global:
+            # Jenny inherits Alfred's backend config
+            ai_config = ai_service.get_companion_config("alfred")
+        else:
+            ai_config = stored_config
+    else:
+        ai_config = stored_config
+
+    return companion, system_prompt, messages, provider, ai_config
 
 
 # ── Non-streaming ──────────────────────────────────────────────────────────────
 
 @router.post("", response_model=ChatResponse)
 async def send_message(body: ChatRequest, current_user: UserInDB = Depends(get_current_user)):
-    companion, system_prompt, messages, provider, jenny_config = await _resolve_companion_and_prompt(body, current_user)
-    if jenny_config and jenny_config.enabled:
-        reply, provider_label, fallback_used = await ai_service.chat_with_jenny_config(
-            system_prompt=system_prompt, messages=messages, jenny_config=jenny_config, with_fallback=True
+    companion, system_prompt, messages, provider, ai_config = await _resolve_companion_and_prompt(body, current_user)
+    if ai_config and ai_config.enabled:
+        reply, provider_label, fallback_used = await ai_service.chat_with_config(
+            system_prompt=system_prompt, messages=messages, config=ai_config, with_fallback=True
         )
     else:
         raw_reply, provider_enum, fallback_used = await ai_service.chat(
@@ -144,16 +166,16 @@ async def stream_message(body: ChatRequest, current_user: UserInDB = Depends(get
       {"cmd_err": "name:error"}    — smart home command failed
       {"done": true}               — stream complete
     """
-    companion, system_prompt, messages, provider, jenny_config = await _resolve_companion_and_prompt(body, current_user)
+    companion, system_prompt, messages, provider, ai_config = await _resolve_companion_and_prompt(body, current_user)
 
     async def event_generator():
         full_text: list[str] = []
         try:
             stream_fn = (
-                ai_service.chat_stream_with_jenny_config(
-                    system_prompt=system_prompt, messages=messages, jenny_config=jenny_config, with_fallback=True
+                ai_service.chat_stream_with_config(
+                    system_prompt=system_prompt, messages=messages, config=ai_config, with_fallback=True
                 )
-                if jenny_config and jenny_config.enabled
+                if ai_config and ai_config.enabled
                 else ai_service.chat_stream(
                     system_prompt=system_prompt, messages=messages, provider=provider, with_fallback=True
                 )

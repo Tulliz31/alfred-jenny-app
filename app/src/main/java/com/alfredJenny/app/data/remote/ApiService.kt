@@ -90,4 +90,24 @@ interface ApiService {
 
     @POST("jenny/test")
     suspend fun testJennyProvider(@Body request: TestJennyRequestDto): Response<TestJennyResponseDto>
+
+    // ── Companion AI configs ──────────────────────────────────────────────────
+
+    @GET("providers/alfred")
+    suspend fun getAlfredConfig(): Response<CompanionAIConfigDto>
+
+    @PUT("providers/alfred")
+    suspend fun setAlfredConfig(@Body config: CompanionAIConfigDto): Response<CompanionAIConfigDto>
+
+    @GET("providers/jenny")
+    suspend fun getJennyConfig(): Response<CompanionAIConfigDto>
+
+    @PUT("providers/jenny")
+    suspend fun setJennyConfig(@Body config: CompanionAIConfigDto): Response<CompanionAIConfigDto>
+
+    @GET("providers/openrouter/models")
+    suspend fun getOpenRouterModelsFromProviders(@Query("api_key") apiKey: String): Response<List<OpenRouterModelDto>>
+
+    @POST("providers/test")
+    suspend fun testProviderConfig(@Body request: TestProviderRequestDto): Response<TestProviderResponseDto>
 }

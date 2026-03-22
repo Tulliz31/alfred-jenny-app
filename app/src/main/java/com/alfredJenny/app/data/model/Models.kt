@@ -52,6 +52,17 @@ data class UserPreferences(
     val jennyAutoOutfit: Boolean = true,
 )
 
+/** Companion AI provider config (stored on backend, retrieved via GET /providers/{companionId}). */
+data class CompanionAIConfig(
+    val companionId: String = "",
+    val providerType: String = "openai",   // "openai" | "anthropic" | "gemini" | "openrouter" | "custom"
+    val apiKey: String = "",
+    val modelId: String = "",
+    val baseUrl: String? = null,
+    val enabled: Boolean = false,
+    val useGlobal: Boolean = true,         // jenny: true = inherit Alfred's config
+)
+
 /** Jenny dedicated AI provider config (stored in DataStore). */
 data class JennyAIConfig(
     val enabled: Boolean = false,

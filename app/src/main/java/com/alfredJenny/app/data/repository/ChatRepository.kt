@@ -315,6 +315,91 @@ class ChatRepository @Inject constructor(
         } else error(parseApiError(response.errorBody()?.string(), response.code()))
     }
 
+    // ── Companion AI configs ──────────────────────────────────────────────────
+
+    suspend fun getCompanionConfig(companionId: String): Result<CompanionAIConfig> = runCatching {
+        val response = when (companionId) {
+            "alfred" -> apiService.getAlfredConfig()
+            "jenny"  -> apiService.getJennyConfig()
+            else     -> error("Unknown companion: $companionId")
+        }
+        if (response.isSuccessful) {
+            val dto = response.body()!!
+            CompanionAIConfig(
+                companionId = dto.companionId,
+                providerType = dto.providerType,
+                apiKey = dto.apiKey,
+                modelId = dto.modelId,
+                baseUrl = dto.baseUrl,
+                enabled = dto.enabled,
+                useGlobal = dto.useGlobal,
+            )
+        } else error(parseApiError(response.errorBody()?.string(), response.code()))
+    }
+
+    suspend fun setCompanionConfig(companionId: String, config: CompanionAIConfig): Result<CompanionAIConfig> = runCatching {
+        val dto = CompanionAIConfigDto(
+            companionId = config.companionId,
+            providerType = config.providerType,
+            apiKey = config.apiKey,
+            modelId = config.modelId,
+            baseUrl = config.baseUrl,
+            enabled = config.enabled,
+            useGlobal = config.useGlobal,
+        )
+        val response = when (companionId) {
+            "alfred" -> apiService.setAlfredConfig(dto)
+            "jenny"  -> apiService.setJennyConfig(dto)
+            else     -> error("Unknown companion: $companionId")
+        }
+        if (response.isSuccessful) {
+            val body = response.body()!!
+            CompanionAIConfig(
+                companionId = body.companionId,
+                providerType = body.providerType,
+                apiKey = body.apiKey,
+                modelId = body.modelId,
+                baseUrl = body.baseUrl,
+                enabled = body.enabled,
+                useGlobal = body.useGlobal,
+            )
+        } else error(parseApiError(response.errorBody()?.string(), response.code()))
+    }
+
+    suspend fun testProviderConfig(config: CompanionAIConfig): Result<Pair<String, String>> = runCatching {
+        val dto = CompanionAIConfigDto(
+            companionId = config.companionId,
+            providerType = config.providerType,
+            apiKey = config.apiKey,
+            modelId = config.modelId,
+            baseUrl = config.baseUrl,
+            enabled = config.enabled,
+            useGlobal = config.useGlobal,
+        )
+        val response = apiService.testProviderConfig(TestProviderRequestDto(config = dto))
+        if (response.isSuccessful) {
+            val body = response.body()!!
+            Pair(body.reply, body.provider)
+        } else error(parseApiError(response.errorBody()?.string(), response.code()))
+    }
+
+    suspend fun getOpenRouterModelsFromProviders(apiKey: String): Result<List<OpenRouterModel>> = runCatching {
+        val response = apiService.getOpenRouterModelsFromProviders(apiKey)
+        if (response.isSuccessful) {
+            response.body()!!.map { dto ->
+                OpenRouterModel(
+                    id = dto.id,
+                    name = dto.name,
+                    description = dto.description ?: "",
+                    contextLength = dto.contextLength ?: 0,
+                    promptCostPer1M = dto.promptCost ?: 0.0,
+                    completionCostPer1M = dto.completionCost ?: 0.0,
+                    isFree = dto.isFree,
+                )
+            }
+        } else error(parseApiError(response.errorBody()?.string(), response.code()))
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private fun parseApiError(body: String?, code: Int): String {
