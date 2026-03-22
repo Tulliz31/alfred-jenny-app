@@ -6,13 +6,20 @@ import android.util.Base64
 import com.alfredJenny.app.data.model.VoiceSpeakRequestDto
 import com.alfredJenny.app.data.remote.ApiService
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.abs
+import kotlin.math.sin
 
 /**
  * Calls the backend /voice/speak endpoint, decodes the MP3 response,
@@ -27,6 +34,13 @@ class VoicePlaybackService @Inject constructor(
 ) {
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying
+
+    /** Simulated audio amplitude [0, 1] for lip-sync animation while speaking. */
+    private val _audioAmplitude = MutableStateFlow(0f)
+    val audioAmplitude: StateFlow<Float> = _audioAmplitude
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var amplitudeJob: Job? = null
 
     private var mediaPlayer: MediaPlayer? = null
     private var lastTempFile: File? = null
@@ -72,9 +86,13 @@ class VoicePlaybackService @Inject constructor(
                 _isPlaying.value = true
             }
         }
+        startAmplitudeOscillator()
     }
 
     fun stopPlayback() {
+        amplitudeJob?.cancel()
+        amplitudeJob = null
+        _audioAmplitude.value = 0f
         mediaPlayer?.runCatching {
             if (isPlaying) stop()
             release()
@@ -86,9 +104,36 @@ class VoicePlaybackService @Inject constructor(
     }
 
     private fun cleanUp(file: File) {
+        amplitudeJob?.cancel()
+        amplitudeJob = null
+        _audioAmplitude.value = 0f
         mediaPlayer?.release()
         mediaPlayer = null
         file.delete()
         _isPlaying.value = false
+    }
+
+    /**
+     * Generates a speech-like amplitude oscillation while audio is playing.
+     * Uses overlapping sine waves at different frequencies to mimic natural
+     * speech cadence without needing direct access to the audio buffer.
+     */
+    private fun startAmplitudeOscillator() {
+        amplitudeJob?.cancel()
+        amplitudeJob = serviceScope.launch {
+            var t = 0f
+            while (_isPlaying.value) {
+                // Blend slow syllable rhythm + fast phoneme flutter + mid modulation
+                val amp = abs(
+                    sin(t * 4.1f) * 0.45f +
+                    sin(t * 11.7f) * 0.25f +
+                    sin(t * 2.3f) * 0.30f
+                ).coerceIn(0f, 1f)
+                _audioAmplitude.value = amp
+                t += 0.06f
+                delay(40)
+            }
+            _audioAmplitude.value = 0f
+        }
     }
 }

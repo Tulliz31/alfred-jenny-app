@@ -43,7 +43,9 @@ import kotlin.random.Random
 @Composable
 fun JennyAvatarView(
     state: AlfredAvatarState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Audio amplitude [0,1] for lip-sync. Driven by VoicePlaybackService.audioAmplitude. */
+    audioAmplitude: Float = 0f,
 ) {
     val context = LocalContext.current
 
@@ -197,7 +199,8 @@ fun JennyAvatarView(
                     translationX = parallaxX.value * 0.10f
                     translationY = breathOffset + parallaxY.value * 0.06f
                     scaleX = reactScale.value
-                    scaleY = reactScale.value
+                    scaleY = reactScale.value *
+                        if (state == AlfredAvatarState.TALKING) 0.85f + audioAmplitude * 0.35f else 1f
                 }
         )
 

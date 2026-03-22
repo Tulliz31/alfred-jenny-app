@@ -35,6 +35,7 @@ data class JennyUiState(
     val avatarState: AlfredAvatarState = AlfredAvatarState.IDLE,
     val activeProvider: String = "",
     val fallbackNotice: String? = null,
+    val audioAmplitude: Float = 0f,
 )
 
 @HiltViewModel
@@ -69,6 +70,11 @@ class JennyViewModel @Inject constructor(
                     it.copy(isSpeaking = playing,
                             avatarState = deriveAvatarState(it.isListening, it.isLoading, playing, it.streamingContent.isNotBlank()))
                 }
+            }
+        }
+        viewModelScope.launch {
+            voicePlaybackService.audioAmplitude.collect { amp ->
+                _uiState.update { it.copy(audioAmplitude = amp) }
             }
         }
         viewModelScope.launch {

@@ -159,7 +159,7 @@ fun JennyScreen(
                 contentAlignment = Alignment.Center
             ) {
                 if (state.isSpeaking) JennySpeakingWave()
-                JennyAvatarView(state = state.avatarState)
+                JennyAvatarView(state = state.avatarState, audioAmplitude = state.audioAmplitude)
             }
         }
 
