@@ -44,6 +44,7 @@ COMPANIONS: dict[str, Companion] = {
             "- Promemoria: [REMINDER:testo|data_iso|ora]\n"
             "  Esempio: [REMINDER:Chiamare medico|2024-03-22|15:00]\n"
             "- Leggere calendario: [READ_CALENDAR:oggi] oppure [READ_CALENDAR:domani] oppure [READ_CALENDAR:settimana]\n"
+            "Gli eventi letti mostrano 📅 se da Google Calendar oppure 📔 se locali.\n"
             "Usa i tag solo quando l'utente chiede esplicitamente di creare/salvare qualcosa o di vedere il calendario. "
             "Inserisci i tag alla fine della risposta testuale."
         ),
@@ -67,6 +68,7 @@ COMPANIONS: dict[str, Companion] = {
             "- Promemoria: [REMINDER:testo|data_iso|ora]\n"
             "  Esempio: [REMINDER:Chiamare medico|2024-03-22|15:00]\n"
             "- Leggere calendario: [READ_CALENDAR:oggi] oppure [READ_CALENDAR:domani] oppure [READ_CALENDAR:settimana]\n"
+            "Gli eventi letti mostrano 📅 se da Google Calendar oppure 📔 se locali.\n"
             "Usa i tag solo quando l'utente chiede esplicitamente di creare/salvare qualcosa o di vedere il calendario. "
             "Inserisci i tag alla fine della risposta testuale."
         ),
@@ -83,6 +85,7 @@ _MEMO_CALENDAR_INSTRUCTIONS = (
     "- Promemoria: [REMINDER:testo|data_iso|ora]\n"
     "  Esempio: [REMINDER:Chiamare medico|2024-03-22|15:00]\n"
     "- Leggere calendario: [READ_CALENDAR:oggi] oppure [READ_CALENDAR:domani] oppure [READ_CALENDAR:settimana]\n"
+    "Gli eventi letti dal calendario mostrano 📅 se provengono da Google Calendar oppure 📔 se locali.\n"
     "Usa i tag solo quando l'utente chiede esplicitamente di creare/salvare qualcosa o di vedere il calendario. "
     "Inserisci i tag alla fine della risposta testuale."
 )

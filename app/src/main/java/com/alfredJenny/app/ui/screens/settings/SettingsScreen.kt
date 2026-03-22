@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -39,6 +40,11 @@ import com.alfredJenny.app.ui.theme.*
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.common.api.ApiException
 
 private enum class SettingsSection(val label: String, val icon: ImageVector) {
     GENERALE("Generale", Icons.Default.Tune),
@@ -192,7 +198,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 when (selectedSection) {
-                    SettingsSection.GENERALE    -> GeneraleSection(state, viewModel, onOpenAvatarImport, onOpenAlfredAI)
+                    SettingsSection.GENERALE    -> GeneraleSection(state, viewModel, onOpenAvatarImport, onOpenJennyAvatar, onOpenAlfredAI)
                     SettingsSection.PROVIDER_AI -> ProviderAiSection(state, viewModel)
                     SettingsSection.VOCE        -> VoceSection(state, viewModel, onOpenAlfredVoice)
                     SettingsSection.MEMORIA     -> MemoriaSection(state, viewModel)
@@ -462,7 +468,7 @@ private fun SectionCard(section: SettingsSection, badge: String?, onClick: () ->
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun GeneraleSection(state: SettingsUiState, viewModel: SettingsViewModel, onOpenAvatarImport: () -> Unit, onOpenAlfredAI: () -> Unit = {}) {
+private fun GeneraleSection(state: SettingsUiState, viewModel: SettingsViewModel, onOpenAvatarImport: () -> Unit, onOpenJennyAvatar: () -> Unit = {}, onOpenAlfredAI: () -> Unit = {}) {
     SectionLabel("Backend")
     OutlinedTextField(
         value = state.preferences.baseUrl,
@@ -484,6 +490,19 @@ private fun GeneraleSection(state: SettingsUiState, viewModel: SettingsViewModel
         Icon(Icons.Default.Face, contentDescription = null, tint = AlfredBlueLight, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text("Sostituisci avatar", fontWeight = FontWeight.SemiBold, color = AlfredBlueLight)
+    }
+    HorizontalDivider(color = SurfaceVariant)
+    SectionLabel("Avatar Jenny")
+    Text("Sostituisci i PNG di body, occhi e bocca con immagini personalizzate.",
+        style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+    OutlinedButton(
+        onClick = onOpenJennyAvatar,
+        modifier = Modifier.fillMaxWidth().height(52.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, JennyPurpleLight)
+    ) {
+        Icon(Icons.Default.Face, contentDescription = null, tint = JennyPurpleLight, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Gestisci avatar Jenny", fontWeight = FontWeight.SemiBold, color = JennyPurpleLight)
     }
     HorizontalDivider(color = SurfaceVariant)
     SectionLabel("AI Dedicata Alfred")
@@ -524,6 +543,68 @@ private fun GeneraleSection(state: SettingsUiState, viewModel: SettingsViewModel
             colors = SwitchDefaults.colors(checkedTrackColor = AlfredBlue, checkedThumbColor = AlfredBlueLight)
         )
     }
+    // ── Google Calendar connect ────────────────────────────────────────────────
+    Spacer(Modifier.height(4.dp))
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            runCatching {
+                val account = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                    .getResult(ApiException::class.java)
+                viewModel.onGoogleSignInSuccess(account)
+            }
+        }
+    }
+    val googleEmail = state.preferences.googleCalendarEmail
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = if (googleEmail.isNotBlank()) Color(0xFF1A3A1A) else SurfaceVariant,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("🗓️", fontSize = 18.sp)
+                Text("Google Calendar",
+                    color = OnBackground, fontWeight = FontWeight.SemiBold, fontSize = 15.sp,
+                    modifier = Modifier.weight(1f))
+                if (googleEmail.isNotBlank()) {
+                    Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFF2E7D32)) {
+                        Text("Connesso", modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            color = Color(0xFF81C784), fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+            if (googleEmail.isNotBlank()) {
+                Text(googleEmail, color = OnSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(
+                    onClick = { viewModel.disconnectGoogleCalendar() },
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRed.copy(alpha = 0.7f))
+                ) {
+                    Icon(Icons.Default.LinkOff, contentDescription = null, tint = ErrorRed,
+                        modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Disconnetti account Google", color = ErrorRed, fontSize = 13.sp)
+                }
+            } else {
+                Text("Connetti il tuo account Google per usare Google Calendar.",
+                    color = OnSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(
+                    onClick = { googleSignInLauncher.launch(viewModel.getGoogleSignInIntent()) },
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF4285F4))
+                ) {
+                    Text("G", color = Color(0xFF4285F4), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Connetti Google Calendar", color = Color(0xFF4285F4), fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium)
+                }
+            }
+        }
+    }
+
     if (state.availableCalendars.isNotEmpty()) {
         Spacer(Modifier.height(8.dp))
         Text("Calendario predefinito", color = OnBackground, fontWeight = FontWeight.Medium)
@@ -1102,19 +1183,6 @@ private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel
 
     HorizontalDivider(color = SurfaceVariant, modifier = Modifier.padding(top = 12.dp))
     SaveButton(viewModel)
-    HorizontalDivider(color = SurfaceVariant)
-    SectionLabel("Avatar Jenny")
-    Text("Sostituisci i PNG di body, occhi e bocca con immagini personalizzate.",
-        style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
-    OutlinedButton(
-        onClick = onOpenJennyAvatar,
-        modifier = Modifier.fillMaxWidth().height(52.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, JennyPurpleLight)
-    ) {
-        Icon(Icons.Default.Face, contentDescription = null, tint = JennyPurpleLight, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text("Gestisci avatar Jenny", fontWeight = FontWeight.SemiBold, color = JennyPurpleLight)
-    }
     HorizontalDivider(color = SurfaceVariant)
     SectionLabel("AI Dedicata Jenny")
     Text("Configura un provider AI separato (OpenRouter o URL custom) usato solo da Jenny.",

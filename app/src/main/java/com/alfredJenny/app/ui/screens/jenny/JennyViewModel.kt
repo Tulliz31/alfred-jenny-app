@@ -246,7 +246,7 @@ class JennyViewModel @Inject constructor(
                         } else {
                             viewModelScope.launch {
                                 val calId = prefs.defaultCalendarId
-                                if (calId < 0L) {
+                                if (calId.isBlank()) {
                                     chatRepository.saveAssistantMessage(JENNY_SESSION_ID, "⚠️ Nessun calendario selezionato nelle impostazioni.")
                                     return@launch
                                 }
@@ -289,7 +289,7 @@ class JennyViewModel @Inject constructor(
                 pendingCalendarReadForPermission = null
                 viewModelScope.launch {
                     val calId = prefs.defaultCalendarId
-                    if (calId >= 0L) {
+                    if (calId.isNotBlank()) {
                         val (startMs, endMs) = periodToRange(period)
                         val events = calendarRepository.getEvents(calId, startMs, endMs)
                         chatRepository.saveAssistantMessage(JENNY_SESSION_ID, calendarRepository.formatEventsForDisplay(events))
@@ -325,7 +325,7 @@ class JennyViewModel @Inject constructor(
             return
         }
         val calId = prefs.defaultCalendarId
-        if (calId < 0L) {
+        if (calId.isBlank()) {
             _uiState.update { it.copy(memoFeedback = "⚠️ Seleziona un calendario nelle impostazioni") }
             return
         }

@@ -1,0 +1,92 @@
+====================================================================
+  AlfredJenny — Google Calendar API Setup Guide
+====================================================================
+
+PREREQUISITES
+-------------
+- A Google account with access to Google Cloud Console
+- The app's SHA-1 debug/release fingerprint (see below how to get it)
+
+
+STEP 1 — Create a Google Cloud project
+---------------------------------------
+1. Go to https://console.cloud.google.com/
+2. Click "New Project" and name it "AlfredJenny" (or any name)
+3. Select the new project
+
+
+STEP 2 — Enable the Google Calendar API
+----------------------------------------
+1. In the left menu: APIs & Services → Library
+2. Search for "Google Calendar API" and click Enable
+
+
+STEP 3 — Configure the OAuth consent screen
+--------------------------------------------
+1. APIs & Services → OAuth consent screen
+2. Choose "External" (or "Internal" if using Google Workspace)
+3. Fill in:
+   - App name: AlfredJenny
+   - User support email: your email
+   - Developer contact email: your email
+4. Scopes: click "Add or Remove Scopes"
+   - Add: https://www.googleapis.com/auth/calendar
+5. Test users: add your Gmail address (required for External apps in testing)
+6. Save and Continue
+
+
+STEP 4 — Create an OAuth 2.0 credential
+-----------------------------------------
+1. APIs & Services → Credentials → Create Credentials → OAuth client ID
+2. Application type: Android
+3. Package name: com.alfredJenny.app
+4. SHA-1 certificate fingerprint:
+   - Debug key (for development):
+     Run in terminal:
+       keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
+     On Windows:
+       keytool -list -v -keystore "%USERPROFILE%\.android\debug.keystore" -alias androiddebugkey -storepass android -keypass android
+   - Release key: use your production keystore
+5. Copy the SHA-1 and paste it in the Cloud Console
+6. Click Create
+7. Download google-services.json
+
+
+STEP 5 — Add google-services.json to the project
+--------------------------------------------------
+1. Place the downloaded google-services.json in: app/
+   (i.e., AlfredJenny/app/google-services.json)
+2. In the root build.gradle.kts (project level), add:
+     id("com.google.gms.google-services") version "4.4.0" apply false
+3. In app/build.gradle.kts (app level), add the plugin:
+     id("com.google.gms.google-services")
+   (at the top of the plugins block)
+
+
+STEP 6 — Publish the app (for production)
+------------------------------------------
+When moving from "Testing" to production:
+1. OAuth consent screen → Publish App
+2. Google will review your app if you request sensitive scopes
+
+
+STEP 7 — In-app usage
+----------------------
+1. Open AlfredJenny → Settings → Generale
+2. Scroll to "Note & Calendario" section
+3. Tap "Connetti Google Calendar"
+4. Complete the Google Sign-In flow
+5. Your Google calendars will appear in the "Calendario predefinito" dropdown
+   (prefixed with a 📅 icon in the calendar event display)
+
+
+NOTES
+-----
+- Google calendar IDs are stored with the prefix "google:" internally
+  (e.g., "google:primary", "google:user@gmail.com")
+- Local device calendars are stored as numeric strings (e.g., "12345")
+- Disconnecting removes the Google session; the default calendar is reset
+  if it was pointing to a Google calendar
+- The Google Sign-In session is automatically restored on app restart
+  if the user was previously signed in
+====================================================================

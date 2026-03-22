@@ -64,9 +64,10 @@ class PreferencesRepository @Inject constructor(
         // Theme
         val KEY_LIGHT_THEME           = booleanPreferencesKey("light_theme")
         // Notes & Calendar
-        val KEY_NOTES_ENABLED         = booleanPreferencesKey("notes_enabled")
-        val KEY_DEFAULT_CALENDAR_ID   = stringPreferencesKey("default_calendar_id")
-        val KEY_CALENDAR_CONFIRM      = booleanPreferencesKey("calendar_confirm_before_add")
+        val KEY_NOTES_ENABLED            = booleanPreferencesKey("notes_enabled")
+        val KEY_DEFAULT_CALENDAR_ID      = stringPreferencesKey("default_calendar_id")
+        val KEY_CALENDAR_CONFIRM         = booleanPreferencesKey("calendar_confirm_before_add")
+        val KEY_GOOGLE_CALENDAR_EMAIL    = stringPreferencesKey("google_calendar_email")
         // Custom outfit names (6 slots)
         val KEY_CUSTOM_OUTFIT_0_NAME  = stringPreferencesKey("custom_outfit_0_name")
         val KEY_CUSTOM_OUTFIT_1_NAME  = stringPreferencesKey("custom_outfit_1_name")
@@ -110,9 +111,10 @@ class PreferencesRepository @Inject constructor(
             jennyOutfit             = prefs[KEY_JENNY_OUTFIT]      ?: "CASUAL",
             jennyAutoOutfit         = prefs[KEY_JENNY_AUTO_OUTFIT] ?: true,
             lightTheme              = prefs[KEY_LIGHT_THEME]       ?: false,
-            notesEnabled            = prefs[KEY_NOTES_ENABLED]     ?: true,
-            defaultCalendarId       = prefs[KEY_DEFAULT_CALENDAR_ID]?.toLongOrNull() ?: -1L,
-            calendarConfirmBeforeAdd = prefs[KEY_CALENDAR_CONFIRM] ?: true,
+            notesEnabled             = prefs[KEY_NOTES_ENABLED]          ?: true,
+            defaultCalendarId        = prefs[KEY_DEFAULT_CALENDAR_ID]     ?: "",
+            calendarConfirmBeforeAdd = prefs[KEY_CALENDAR_CONFIRM]        ?: true,
+            googleCalendarEmail      = prefs[KEY_GOOGLE_CALENDAR_EMAIL]   ?: "",
         )
     }
 
@@ -169,9 +171,10 @@ class PreferencesRepository @Inject constructor(
     // Theme
     suspend fun saveLightTheme(enabled: Boolean)        { dataStore.edit { it[KEY_LIGHT_THEME]           = enabled } }
     // Notes & Calendar
-    suspend fun saveNotesEnabled(enabled: Boolean)      { dataStore.edit { it[KEY_NOTES_ENABLED]         = enabled } }
-    suspend fun saveDefaultCalendarId(id: Long)         { dataStore.edit { it[KEY_DEFAULT_CALENDAR_ID]   = id.toString() } }
-    suspend fun saveCalendarConfirm(confirm: Boolean)   { dataStore.edit { it[KEY_CALENDAR_CONFIRM]      = confirm } }
+    suspend fun saveNotesEnabled(enabled: Boolean)          { dataStore.edit { it[KEY_NOTES_ENABLED]           = enabled } }
+    suspend fun saveDefaultCalendarId(id: String)           { dataStore.edit { it[KEY_DEFAULT_CALENDAR_ID]     = id } }
+    suspend fun saveCalendarConfirm(confirm: Boolean)       { dataStore.edit { it[KEY_CALENDAR_CONFIRM]        = confirm } }
+    suspend fun saveGoogleCalendarEmail(email: String)      { dataStore.edit { it[KEY_GOOGLE_CALENDAR_EMAIL]   = email } }
     // Custom outfit names
     suspend fun getCustomOutfitNames(): List<String> = dataStore.data.map { prefs ->
         listOf(

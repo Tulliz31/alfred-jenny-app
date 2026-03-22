@@ -1,5 +1,7 @@
 package com.alfredJenny.app.ui.screens.main
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -152,8 +154,13 @@ fun MainScreen(
             }
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            when (selectedTab) {
+        Crossfade(
+            targetState = selectedTab,
+            animationSpec = tween(200),
+            label = "mainTab",
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+        ) { tab ->
+            when (tab) {
                 MainTab.HOME       -> HomeScreen(onOpenSettings = onOpenSettings)
                 MainTab.JENNY      -> JennyScreen()
                 MainTab.NOTES      -> NotesScreen()

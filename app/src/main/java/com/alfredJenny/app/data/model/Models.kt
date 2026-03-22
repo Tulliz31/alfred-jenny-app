@@ -54,8 +54,9 @@ data class UserPreferences(
     val lightTheme: Boolean = false,
     // Notes & Calendar
     val notesEnabled: Boolean = true,
-    val defaultCalendarId: Long = -1L,
+    val defaultCalendarId: String = "",
     val calendarConfirmBeforeAdd: Boolean = true,
+    val googleCalendarEmail: String = "",
 )
 
 /** A user account as returned by the admin endpoint. */

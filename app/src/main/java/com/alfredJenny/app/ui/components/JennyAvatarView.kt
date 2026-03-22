@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.alfredJenny.app.ui.theme.*
@@ -39,25 +40,32 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
-// ── Image loader (Coil) ───────────────────────────────────────────────────────
+// ── Image loader ──────────────────────────────────────────────────────────────
 
 /**
- * Returns a Coil [Painter] for a Jenny asset file.
+ * Returns a [Painter] for a Jenny image file.
  * Priority: filesDir/avatars/jenny/ → assets/jenny/
- * Uses Coil so format issues are handled natively; cross-fade 150 ms.
+ *
+ * For user-overridden files (filesDir): uses Coil for broad format support.
+ * For built-in assets: uses BitmapFactory directly via [rememberAssetBitmap],
+ * which is more reliable than Coil's "file:///android_asset/" URI scheme.
  */
 @Composable
 fun jennyImage(filename: String, crossfadeMs: Int = 150): Painter {
     val context = LocalContext.current
     val userFile = File(context.filesDir, "avatars/jenny/$filename")
-    val dataSource: Any = if (userFile.exists()) userFile
-                          else "file:///android_asset/jenny/$filename"
-    return rememberAsyncImagePainter(
-        model = ImageRequest.Builder(context)
-            .data(dataSource)
-            .crossfade(crossfadeMs)
-            .build()
-    )
+    if (userFile.exists()) {
+        // User-imported file — use Coil (handles various image formats)
+        return rememberAsyncImagePainter(
+            model = ImageRequest.Builder(context)
+                .data(userFile)
+                .crossfade(crossfadeMs)
+                .build()
+        )
+    }
+    // Built-in asset — load directly via AssetManager (bypasses Coil URI issues)
+    val bitmap = rememberAssetBitmap(filename)
+    return bitmap?.let { BitmapPainter(it) } ?: ColorPainter(Color.Transparent)
 }
 
 /** Kept for backward compatibility with AvatarManagerScreen thumbnails. */

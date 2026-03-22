@@ -14,6 +14,7 @@ import com.alfredJenny.app.data.remote.TokenStore
 import com.alfredJenny.app.data.repository.AuthRepository
 import com.alfredJenny.app.data.repository.CalendarRepository
 import com.alfredJenny.app.data.repository.CalendarInfo
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.alfredJenny.app.data.repository.ChatRepository
 import com.alfredJenny.app.data.repository.PreferencesRepository
 import com.alfredJenny.app.data.repository.SmartHomeRepository
@@ -74,6 +75,8 @@ data class SettingsUiState(
     val showActivityLog: Boolean = false,
     // Calendar
     val availableCalendars: List<CalendarInfo> = emptyList(),
+    // Google Calendar
+    val isLoadingCalendars: Boolean = false,
 )
 
 @HiltViewModel
@@ -310,12 +313,39 @@ class SettingsViewModel @Inject constructor(
     // ── Notes & Calendar ──────────────────────────────────────────────────────
 
     fun onNotesEnabledChange(enabled: Boolean)       { update { copy(notesEnabled = enabled) } }
-    fun onDefaultCalendarIdChange(id: Long)          { update { copy(defaultCalendarId = id) } }
+    fun onDefaultCalendarIdChange(id: String)        { update { copy(defaultCalendarId = id) } }
     fun onCalendarConfirmChange(confirm: Boolean)    { update { copy(calendarConfirmBeforeAdd = confirm) } }
 
     fun loadCalendars() {
-        val calendars = calendarRepository.getAvailableCalendars()
-        _uiState.update { it.copy(availableCalendars = calendars) }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingCalendars = true) }
+            val calendars = calendarRepository.getAvailableCalendars()
+            _uiState.update { it.copy(availableCalendars = calendars, isLoadingCalendars = false) }
+        }
+    }
+
+    // ── Google Calendar ───────────────────────────────────────────────────────
+
+    fun getGoogleSignInIntent() = calendarRepository.getGoogleSignInIntent()
+
+    fun onGoogleSignInSuccess(account: GoogleSignInAccount) {
+        calendarRepository.initGoogleCalendar(account)
+        viewModelScope.launch {
+            preferencesRepository.saveGoogleCalendarEmail(account.email ?: "")
+            loadCalendars()
+        }
+    }
+
+    fun disconnectGoogleCalendar() {
+        calendarRepository.disconnectGoogle()
+        viewModelScope.launch {
+            preferencesRepository.saveGoogleCalendarEmail("")
+            // Clear default calendar if it was a Google one
+            if (_uiState.value.preferences.defaultCalendarId.startsWith("google:")) {
+                preferencesRepository.saveDefaultCalendarId("")
+            }
+            loadCalendars()
+        }
     }
 
     // ── Theme ─────────────────────────────────────────────────────────────────
@@ -501,6 +531,7 @@ class SettingsViewModel @Inject constructor(
             preferencesRepository.saveNotesEnabled(p.notesEnabled)
             preferencesRepository.saveDefaultCalendarId(p.defaultCalendarId)
             preferencesRepository.saveCalendarConfirm(p.calendarConfirmBeforeAdd)
+            preferencesRepository.saveGoogleCalendarEmail(p.googleCalendarEmail)
             _uiState.update { it.copy(isSaved = true) }
         }
     }

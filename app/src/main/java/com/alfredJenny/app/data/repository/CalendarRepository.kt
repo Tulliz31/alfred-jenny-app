@@ -2,7 +2,9 @@ package com.alfredJenny.app.data.repository
 
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.provider.CalendarContract
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -12,24 +14,54 @@ import java.util.TimeZone
 import javax.inject.Inject
 import javax.inject.Singleton
 
-data class CalendarInfo(val id: Long, val name: String, val accountName: String)
+enum class CalendarSource { LOCAL, GOOGLE }
+
+data class CalendarInfo(
+    val id: String,
+    val name: String,
+    val accountName: String,
+    val source: CalendarSource = CalendarSource.LOCAL,
+)
 
 data class CalendarEvent(
-    val id: Long,
+    val id: String,
     val title: String,
     val description: String,
     val startMs: Long,
     val endMs: Long,
     val calendarName: String,
+    val source: CalendarSource = CalendarSource.LOCAL,
 )
 
 @Singleton
 class CalendarRepository @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+    private val googleService = GoogleCalendarService()
 
-    fun getAvailableCalendars(): List<CalendarInfo> {
-        val calendars = mutableListOf<CalendarInfo>()
+    init {
+        // Restore previous Google Sign-In session if still valid
+        googleService.tryRestoreFromLastSignIn(context)
+    }
+
+    // ── Google Calendar session management ────────────────────────────────────
+
+    fun getGoogleSignInIntent(): Intent = googleService.getSignInIntent(context)
+
+    fun initGoogleCalendar(account: GoogleSignInAccount) {
+        googleService.init(context, account)
+    }
+
+    fun disconnectGoogle() {
+        googleService.signOut(context)
+    }
+
+    fun getGoogleEmail(): String? = googleService.getSignedInEmail()
+
+    // ── Calendar list ─────────────────────────────────────────────────────────
+
+    suspend fun getAvailableCalendars(): List<CalendarInfo> = withContext(Dispatchers.IO) {
+        val local = mutableListOf<CalendarInfo>()
         val projection = arrayOf(
             CalendarContract.Calendars._ID,
             CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
@@ -41,28 +73,37 @@ class CalendarRepository @Inject constructor(
                 projection, null, null, null
             )?.use { cursor ->
                 while (cursor.moveToNext()) {
-                    calendars.add(
+                    local.add(
                         CalendarInfo(
-                            id = cursor.getLong(0),
+                            id = cursor.getLong(0).toString(),
                             name = cursor.getString(1) ?: "",
                             accountName = cursor.getString(2) ?: "",
+                            source = CalendarSource.LOCAL,
                         )
                     )
                 }
             }
         }
-        return calendars
+        val google = googleService.getCalendars()
+        local + google
     }
 
+    // ── Events ────────────────────────────────────────────────────────────────
+
     suspend fun insertEvent(
-        calendarId: Long,
+        calendarId: String,
         title: String,
         description: String,
         startMs: Long,
         endMs: Long,
-    ): Long = withContext(Dispatchers.IO) {
+    ): String = withContext(Dispatchers.IO) {
+        if (calendarId.startsWith("google:")) {
+            return@withContext googleService.insertEvent(calendarId, title, description, startMs, endMs)
+        }
+        // Local calendar
+        val localId = calendarId.toLongOrNull() ?: return@withContext ""
         val values = ContentValues().apply {
-            put(CalendarContract.Events.CALENDAR_ID, calendarId)
+            put(CalendarContract.Events.CALENDAR_ID, localId)
             put(CalendarContract.Events.TITLE, title)
             put(CalendarContract.Events.DESCRIPTION, description)
             put(CalendarContract.Events.DTSTART, startMs)
@@ -70,11 +111,15 @@ class CalendarRepository @Inject constructor(
             put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
         }
         val uri = context.contentResolver.insert(CalendarContract.Events.CONTENT_URI, values)
-        uri?.lastPathSegment?.toLongOrNull() ?: -1L
+        uri?.lastPathSegment ?: ""
     }
 
-    suspend fun getEvents(calendarId: Long, startMs: Long, endMs: Long): List<CalendarEvent> =
+    suspend fun getEvents(calendarId: String, startMs: Long, endMs: Long): List<CalendarEvent> =
         withContext(Dispatchers.IO) {
+            if (calendarId.startsWith("google:")) {
+                return@withContext googleService.getEvents(calendarId, startMs, endMs)
+            }
+            // Local calendar
             val events = mutableListOf<CalendarEvent>()
             val projection = arrayOf(
                 CalendarContract.Events._ID,
@@ -86,7 +131,7 @@ class CalendarRepository @Inject constructor(
             val selection = "${CalendarContract.Events.CALENDAR_ID} = ? AND " +
                     "${CalendarContract.Events.DTSTART} >= ? AND " +
                     "${CalendarContract.Events.DTSTART} <= ?"
-            val args = arrayOf(calendarId.toString(), startMs.toString(), endMs.toString())
+            val args = arrayOf(calendarId, startMs.toString(), endMs.toString())
             runCatching {
                 context.contentResolver.query(
                     CalendarContract.Events.CONTENT_URI,
@@ -96,12 +141,13 @@ class CalendarRepository @Inject constructor(
                     while (cursor.moveToNext()) {
                         events.add(
                             CalendarEvent(
-                                id = cursor.getLong(0),
+                                id = cursor.getLong(0).toString(),
                                 title = cursor.getString(1) ?: "(senza titolo)",
                                 description = cursor.getString(2) ?: "",
                                 startMs = cursor.getLong(3),
                                 endMs = cursor.getLong(4),
                                 calendarName = "",
+                                source = CalendarSource.LOCAL,
                             )
                         )
                     }
@@ -109,6 +155,8 @@ class CalendarRepository @Inject constructor(
             }
             events
         }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     /** Parse ISO date + time strings into milliseconds since epoch. */
     fun parseEventTimeMs(date: String, time: String): Long {
@@ -125,7 +173,8 @@ class CalendarRepository @Inject constructor(
         return events.joinToString("\n") { ev ->
             val start = timeFmt.format(ev.startMs)
             val end = timeFmt.format(ev.endMs)
-            "• ${ev.title} ($start–$end)"
+            val icon = if (ev.source == CalendarSource.GOOGLE) "📅" else "📔"
+            "$icon ${ev.title} ($start–$end)"
         }
     }
 }
