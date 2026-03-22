@@ -34,12 +34,39 @@ import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.ColorPainter
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
+import coil.transform.Transformation as CoilTransformation
 import com.alfredJenny.app.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
+
+// ── Teal background removal ───────────────────────────────────────────────────
+
+/**
+ * Removes the teal chroma-key background (#00BCD4 ≈ r<80, g>150, b>150) from a bitmap.
+ * Matching pixels are replaced with transparent. Runs on IO thread.
+ */
+private fun removeTealBackground(bmp: android.graphics.Bitmap): android.graphics.Bitmap {
+    val result = bmp.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
+    for (x in 0 until result.width) {
+        for (y in 0 until result.height) {
+            val px = result.getPixel(x, y)
+            val r = android.graphics.Color.red(px)
+            val g = android.graphics.Color.green(px)
+            val b = android.graphics.Color.blue(px)
+            if (g > 150 && b > 150 && r < 80) result.setPixel(x, y, android.graphics.Color.TRANSPARENT)
+        }
+    }
+    return result
+}
+
+private val RemoveTealBg = object : CoilTransformation {
+    override val cacheKey = "remove_teal_bg_v1"
+    override suspend fun transform(input: android.graphics.Bitmap, size: coil.size.Size): android.graphics.Bitmap =
+        removeTealBackground(input)
+}
 
 // ── Image loader ──────────────────────────────────────────────────────────────
 
@@ -61,6 +88,7 @@ fun jennyImage(filename: String, crossfadeMs: Int = 150): Painter {
             model = ImageRequest.Builder(context)
                 .data(userFile)
                 .crossfade(crossfadeMs)
+                .transformations(RemoveTealBg)
                 .build()
         )
     }
@@ -80,12 +108,14 @@ fun rememberAssetBitmap(assetPath: String, sampleSize: Int = 1): ImageBitmap? {
             val override = File(context.filesDir, "avatars/jenny/$assetPath")
             if (override.exists()) {
                 runCatching {
-                    override.inputStream().use { android.graphics.BitmapFactory.decodeStream(it, null, opts)?.asImageBitmap() }
+                    override.inputStream().use { android.graphics.BitmapFactory.decodeStream(it, null, opts)
+                        ?.let { bmp -> removeTealBackground(bmp).asImageBitmap() } }
                 }.getOrNull()
             } else {
                 runCatching {
                     context.assets.open("jenny/$assetPath").use { stream ->
-                        android.graphics.BitmapFactory.decodeStream(stream, null, opts)?.asImageBitmap()
+                        android.graphics.BitmapFactory.decodeStream(stream, null, opts)
+                            ?.let { bmp -> removeTealBackground(bmp).asImageBitmap() }
                     }
                 }.getOrNull()
             }
@@ -237,20 +267,19 @@ fun JennyAvatarView(
                     }
             )
 
-            // Layer 2 — Eyes (Crossfade 150 ms between states)
-            // Fixed proportional size: 54% wide, ~22% tall (typical eyes aspect)
-            val eyeW = bW * 0.54f
-            val eyeH = eyeW * 0.40f
+            // Layer 2 — Eyes: full-face crops — cover the entire head area (top 45%)
+            val eyeH = bH * 0.45f
             Crossfade(
                 targetState = effectiveEyeState,
                 animationSpec = tween(150),
                 label = "eyes",
                 modifier = Modifier
-                    .size(eyeW, eyeH)
+                    .fillMaxWidth()
+                    .height(eyeH)
                     .align(Alignment.TopCenter)
                     .offset(
                         x = (parallaxX.value * 0.14f).dp,
-                        y = (bH * 0.35f) - (eyeH / 2) + (breathOffset + parallaxY.value * 0.08f).dp
+                        y = (breathOffset + parallaxY.value * 0.08f).dp
                     )
                     .graphicsLayer {
                         scaleX = reactScale.value
@@ -265,19 +294,20 @@ fun JennyAvatarView(
                 )
             }
 
-            // Layer 3 — Mouth (80 ms lip-sync cycle)
-            val mW = bW * 0.38f
-            val mH = mW * 0.38f
+            // Layer 3 — Mouth: full-face crops — overlay on lower face area (~28% from top)
+            val mW = bW * 0.60f
+            val mH = bH * 0.15f
             Crossfade(
                 targetState = mouthState,
                 animationSpec = tween(80),
                 label = "mouth",
                 modifier = Modifier
-                    .size(mW, mH)
+                    .width(mW)
+                    .height(mH)
                     .align(Alignment.TopCenter)
                     .offset(
                         x = (parallaxX.value * 0.10f).dp,
-                        y = (bH * 0.52f) - (mH / 2) + (breathOffset + parallaxY.value * 0.06f).dp
+                        y = bH * 0.28f + (breathOffset + parallaxY.value * 0.06f).dp
                     )
                     .graphicsLayer {
                         scaleX = reactScale.value
