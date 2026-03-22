@@ -35,6 +35,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alfredJenny.app.data.model.VoiceMode
 import com.alfredJenny.app.ui.components.JennyAvatarView
+import com.alfredJenny.app.ui.components.JennyOutfit
 import com.alfredJenny.app.ui.theme.*
 import kotlinx.coroutines.delay
 
@@ -45,7 +46,6 @@ fun JennyScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val context = LocalContext.current
-    var avatarExpanded by remember { mutableStateOf(true) }
 
     var hasAudioPermission by remember {
         mutableStateOf(
@@ -79,18 +79,16 @@ fun JennyScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { avatarExpanded = !avatarExpanded }) {
-                Box(
-                    modifier = Modifier.size(44.dp).clip(CircleShape)
-                        .background(
-                            androidx.compose.ui.graphics.Brush.radialGradient(
-                                listOf(JennyPurpleLight, JennyPurpleDark)
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("J", color = OnBackground, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                }
+            Box(
+                modifier = Modifier.size(44.dp).clip(CircleShape)
+                    .background(
+                        androidx.compose.ui.graphics.Brush.radialGradient(
+                            listOf(JennyPurpleLight, JennyPurpleDark)
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("J", color = OnBackground, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
             Spacer(Modifier.width(4.dp))
             Column(Modifier.weight(1f)) {
@@ -152,15 +150,23 @@ fun JennyScreen(
             }
         }
 
-        // ── Avatar panel (collapsible) ────────────────────────────────────────
-        AnimatedVisibility(visible = avatarExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-            Box(
-                modifier = Modifier.fillMaxWidth().background(Background),
-                contentAlignment = Alignment.Center
-            ) {
-                if (state.isSpeaking) JennySpeakingWave()
-                JennyAvatarView(state = state.avatarState, audioAmplitude = state.audioAmplitude)
-            }
+        // ── Avatar panel — corpo occupa ~58% dello spazio flessibile ─────────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(0.58f)
+                .background(Background),
+            contentAlignment = Alignment.Center
+        ) {
+            if (state.isSpeaking) JennySpeakingWave()
+            JennyAvatarView(
+                state = state.avatarState,
+                outfit = state.outfit,
+                eyeEmotion = state.eyeEmotion,
+                audioAmplitude = state.audioAmplitude,
+                onOutfitChange = viewModel::setOutfit,
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         // ── Voice mode selector ───────────────────────────────────────────────
@@ -175,7 +181,7 @@ fun JennyScreen(
         // ── Messages ──────────────────────────────────────────────────────────
         LazyColumn(
             state = listState,
-            modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+            modifier = Modifier.weight(0.42f).padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {

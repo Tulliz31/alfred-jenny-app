@@ -41,6 +41,8 @@ data class UserPreferences(
     val smartHomeEnabled: Boolean = false,
     // Onboarding
     val onboardingCompleted: Boolean = false,
+    // Jenny outfit (CASUAL / SERATA / BIKINI)
+    val jennyOutfit: String = "CASUAL",
 )
 
 /** Provider info for local display (mirrors backend ProviderInfo). */

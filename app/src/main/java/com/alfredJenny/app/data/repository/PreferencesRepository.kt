@@ -45,6 +45,8 @@ class PreferencesRepository @Inject constructor(
         val KEY_SMART_HOME_ENABLED    = booleanPreferencesKey("smart_home_enabled")
         // Onboarding
         val KEY_ONBOARDING_COMPLETED  = booleanPreferencesKey("onboarding_completed")
+        // Jenny outfit
+        val KEY_JENNY_OUTFIT          = stringPreferencesKey("jenny_outfit")
     }
 
     val userPreferences: Flow<UserPreferences> = dataStore.data.map { prefs ->
@@ -73,6 +75,7 @@ class PreferencesRepository @Inject constructor(
             providerFallbackEnabled = prefs[KEY_FALLBACK_ENABLED] ?: true,
             smartHomeEnabled        = prefs[KEY_SMART_HOME_ENABLED] ?: false,
             onboardingCompleted     = prefs[KEY_ONBOARDING_COMPLETED] ?: false,
+            jennyOutfit             = prefs[KEY_JENNY_OUTFIT] ?: "CASUAL",
         )
     }
 
@@ -102,4 +105,6 @@ class PreferencesRepository @Inject constructor(
     suspend fun saveSmartHomeEnabled(enabled: Boolean){ dataStore.edit { it[KEY_SMART_HOME_ENABLED] = enabled } }
     // Onboarding
     suspend fun saveOnboardingCompleted(done: Boolean){ dataStore.edit { it[KEY_ONBOARDING_COMPLETED] = done } }
+    // Jenny outfit
+    suspend fun saveJennyOutfit(outfit: String)       { dataStore.edit { it[KEY_JENNY_OUTFIT]          = outfit } }
 }

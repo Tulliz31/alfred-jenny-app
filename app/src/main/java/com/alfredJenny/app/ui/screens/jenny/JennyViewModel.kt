@@ -12,7 +12,12 @@ import com.alfredJenny.app.data.repository.AuthRepository
 import com.alfredJenny.app.services.SpeechInputService
 import com.alfredJenny.app.services.VoicePlaybackService
 import com.alfredJenny.app.ui.components.AlfredAvatarState
+import com.alfredJenny.app.ui.components.EmotionDetector
+import com.alfredJenny.app.ui.components.EyeState
+import com.alfredJenny.app.ui.components.JennyOutfit
+import com.alfredJenny.app.ui.components.OutfitManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -36,6 +41,8 @@ data class JennyUiState(
     val activeProvider: String = "",
     val fallbackNotice: String? = null,
     val audioAmplitude: Float = 0f,
+    val outfit: JennyOutfit = JennyOutfit.CASUAL,
+    val eyeEmotion: EyeState = EyeState.OPEN,
 )
 
 @HiltViewModel
@@ -61,7 +68,15 @@ class JennyViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesRepository.userPreferences.collect { p ->
                 prefs = p
-                _uiState.update { it.copy(voiceEnabled = p.voiceEnabled, personalityLevel = p.jennyPersonalityLevel) }
+                val savedOutfit = runCatching { JennyOutfit.valueOf(p.jennyOutfit) }
+                    .getOrDefault(OutfitManager.autoOutfit())
+                _uiState.update {
+                    it.copy(
+                        voiceEnabled = p.voiceEnabled,
+                        personalityLevel = p.jennyPersonalityLevel,
+                        outfit = savedOutfit,
+                    )
+                }
             }
         }
         viewModelScope.launch {
@@ -146,10 +161,17 @@ class JennyViewModel @Inject constructor(
                             memoryEnabled = prefs.memoryEnabled,
                             memorySummaryInterval = prefs.memorySummaryInterval,
                         )
+                        val emotion = EmotionDetector.detect(event.fullText)
                         _uiState.update {
                             it.copy(isLoading = false, streamingContent = "",
                                     activeProvider = event.providerId,
-                                    avatarState = if (it.voiceEnabled) AlfredAvatarState.TALKING else AlfredAvatarState.IDLE)
+                                    avatarState = if (it.voiceEnabled) AlfredAvatarState.TALKING else AlfredAvatarState.IDLE,
+                                    eyeEmotion = emotion)
+                        }
+                        // Emotion expires after 5 s
+                        viewModelScope.launch {
+                            delay(5000)
+                            _uiState.update { it.copy(eyeEmotion = EyeState.OPEN) }
                         }
                     }
                     is StreamEvent.Error -> {
@@ -161,6 +183,11 @@ class JennyViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun setOutfit(outfit: JennyOutfit) {
+        _uiState.update { it.copy(outfit = outfit) }
+        viewModelScope.launch { preferencesRepository.saveJennyOutfit(outfit.name) }
     }
 
     fun dismissError()         = _uiState.update { it.copy(error = null, voiceError = null) }
