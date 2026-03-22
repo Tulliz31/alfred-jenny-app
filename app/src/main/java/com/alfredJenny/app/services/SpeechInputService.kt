@@ -39,8 +39,16 @@ enum class CasaPhase { IDLE, LISTENING_FOR_WAKE, LISTENING_FOR_COMMAND }
 class SpeechInputService @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+    companion object {
+        /** Minimum time (ms) the mic stays open in LISTENING_FOR_COMMAND before giving up. */
+        private const val MIN_LISTEN_DURATION_MS = 5000L
+    }
+
     private val mainHandler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
+
+    /** Timestamp when the current LISTENING_FOR_COMMAND session started. */
+    private var commandPhaseStartMs: Long = 0L
 
     private val _state = MutableStateFlow(SpeechInputState())
     val state: StateFlow<SpeechInputState> = _state
@@ -71,6 +79,7 @@ class SpeechInputService @Inject constructor(
             recognizer?.stopListening()
             recognizer?.destroy()
             recognizer = null
+            commandPhaseStartMs = 0L
             _state.update { it.copy(isListening = false, casaPhase = CasaPhase.IDLE, partialText = "") }
         }
     }
@@ -143,7 +152,18 @@ class SpeechInputService @Inject constructor(
 
         override fun onError(error: Int) {
             _state.update { it.copy(isListening = false, partialText = "") }
-            if (casaPhase != null) scheduleRestart(casaPhase)
+            if (casaPhase == CasaPhase.LISTENING_FOR_COMMAND) {
+                // Keep the mic open until MIN_LISTEN_DURATION_MS has elapsed
+                val elapsed = System.currentTimeMillis() - commandPhaseStartMs
+                if (elapsed < MIN_LISTEN_DURATION_MS) {
+                    scheduleRestart(CasaPhase.LISTENING_FOR_COMMAND)
+                } else {
+                    // Timeout expired — give up and go back to wake-word listening
+                    scheduleRestart(CasaPhase.LISTENING_FOR_WAKE)
+                }
+            } else if (casaPhase != null) {
+                scheduleRestart(casaPhase)
+            }
         }
     }
 
@@ -161,7 +181,8 @@ class SpeechInputService @Inject constructor(
             onCommandDetected?.invoke(command)
             scheduleRestart(CasaPhase.LISTENING_FOR_WAKE)
         } else {
-            // "Alfred" alone — next utterance is the command
+            // "Alfred" alone — next utterance is the command; start the timer
+            commandPhaseStartMs = System.currentTimeMillis()
             _state.update { it.copy(casaPhase = CasaPhase.LISTENING_FOR_COMMAND) }
             mainHandler.post { launchRecognizer(CasaPhase.LISTENING_FOR_COMMAND) }
         }
