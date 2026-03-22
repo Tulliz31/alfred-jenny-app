@@ -164,11 +164,11 @@ fun HomeScreen(
             }
         }
 
-        // ── Avatar panel — Alfred centrato in alto, occupa 40% dello spazio flessibile ──
+        // ── Avatar panel — Alfred centrato in alto, occupa 45% dello spazio flessibile ──
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(0.40f)
+                .weight(0.45f)
                 .background(Background),
             contentAlignment = Alignment.Center
         ) {
@@ -202,7 +202,7 @@ fun HomeScreen(
             isRefreshing = state.isRefreshing,
             onRefresh = viewModel::refresh,
             state = rememberPullToRefreshState(),
-            modifier = Modifier.weight(0.60f),
+            modifier = Modifier.weight(0.55f),
         ) {
             LazyColumn(
                 state = listState,

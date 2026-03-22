@@ -86,4 +86,7 @@ dependencies {
 
     // Coroutines
     implementation(libs.coroutines.android)
+
+    // Coil (asset PNG sprite loading)
+    implementation(libs.coil.compose)
 }
