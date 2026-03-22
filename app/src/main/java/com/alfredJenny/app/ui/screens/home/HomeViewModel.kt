@@ -43,6 +43,8 @@ data class HomeUiState(
     val activeProvider: String = "",
     val fallbackNotice: String? = null,         // brief message when fallback fires
     val isRefreshing: Boolean = false,
+    // Smart home command feedback
+    val commandFeedback: String? = null,
 )
 
 @HiltViewModel
@@ -196,6 +198,13 @@ class HomeViewModel @Inject constructor(
                                     avatarState = if (it.voiceEnabled) AlfredAvatarState.TALKING else AlfredAvatarState.IDLE)
                         }
                     }
+                    is StreamEvent.CommandExecuted -> {
+                        val icon = actionIcon(event.action)
+                        _uiState.update { it.copy(commandFeedback = "$icon ${event.deviceName}") }
+                    }
+                    is StreamEvent.CommandFailed -> {
+                        _uiState.update { it.copy(commandFeedback = "❌ ${event.deviceName}: ${event.error}") }
+                    }
                     is StreamEvent.Error -> {
                         _uiState.update {
                             it.copy(isLoading = false, streamingContent = "",
@@ -207,8 +216,9 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun dismissError()        = _uiState.update { it.copy(error = null, voiceError = null) }
-    fun dismissFallbackNotice()= _uiState.update { it.copy(fallbackNotice = null) }
+    fun dismissError()           = _uiState.update { it.copy(error = null, voiceError = null) }
+    fun dismissFallbackNotice()  = _uiState.update { it.copy(fallbackNotice = null) }
+    fun dismissCommandFeedback() = _uiState.update { it.copy(commandFeedback = null) }
 
     // ── Voice mode ────────────────────────────────────────────────────────────
 
@@ -252,6 +262,17 @@ class HomeViewModel @Inject constructor(
             ).onFailure { err ->
                 _uiState.update { it.copy(voiceError = "TTS: ${err.message}") }
             }
+        }
+    }
+
+    companion object {
+        fun actionIcon(action: String): String = when {
+            action.contains("turn_on") || action == "on"    -> "💡"
+            action.contains("turn_off") || action == "off"  -> "🔌"
+            action == "brightness"                          -> "🔆"
+            action == "colour"                              -> "🎨"
+            action == "temperature"                         -> "🌡️"
+            else                                            -> "✅"
         }
     }
 

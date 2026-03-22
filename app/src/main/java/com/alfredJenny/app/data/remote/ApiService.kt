@@ -47,10 +47,13 @@ interface ApiService {
     @PUT("providers/active")
     suspend fun setActiveProvider(@Body request: SetProviderRequestDto): Response<ProviderDto>
 
-    // ── Smart Home ────────────────────────────────────────────────────────────
+    // ── Smart Home v2 (enriched) ─────────────────────────────────────────────
 
     @GET("devices")
-    suspend fun getDevices(): Response<List<TuyaDeviceDto>>
+    suspend fun getDevices(): Response<DevicesResponseDto>
+
+    @GET("devices/connectors")
+    suspend fun getConnectors(): Response<ConnectorsResponseDto>
 
     @GET("devices/{deviceId}/status")
     suspend fun getDeviceStatus(@Path("deviceId") deviceId: String): Response<DeviceStatusDto>
@@ -61,6 +64,22 @@ interface ApiService {
         @Body command: DeviceCommandDto,
     ): Response<CommandResultDto>
 
+    @PUT("devices/{deviceId}/name")
+    suspend fun renameDevice(
+        @Path("deviceId") deviceId: String,
+        @Body request: RenameDeviceDto,
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("devices/sync")
+    suspend fun syncDevices(): Response<DevicesResponseDto>
+
+    // ── Admin: legacy discover ─────────────────────────────────────────────────
+
     @POST("devices/discover")
     suspend fun discoverDevices(): Response<List<TuyaDeviceDto>>
+
+    // ── Admin: Tuya config ────────────────────────────────────────────────────
+
+    @PUT("devices/admin/tuya-config")
+    suspend fun updateTuyaConfig(@Body config: TuyaConfigDto): Response<Map<String, @JvmSuppressWildcards Any>>
 }

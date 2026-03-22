@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     TUYA_CLIENT_ID: str = ""
     TUYA_CLIENT_SECRET: str = ""
     TUYA_BASE_URL: str = "https://openapi.tuyaeu.com"   # EU region by default
+    TUYA_USER_UID: str = ""   # optional – filters devices by user UID
 
     # CORS
     CORS_ORIGINS: str = "*"

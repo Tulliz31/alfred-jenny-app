@@ -30,8 +30,8 @@ data class UserPreferences(
     val jennyPersonalityLevel: Int = 3,
     // Memory system
     val memoryEnabled: Boolean = true,
-    val memorySummaryInterval: Int = 20,   // summarize every N messages
-    val maxContextMessages: Int = 50,      // max messages to send in context window
+    val memorySummaryInterval: Int = 20,
+    val maxContextMessages: Int = 50,
     // Advanced
     val httpTimeoutSeconds: Int = 60,
     val retryCount: Int = 2,
@@ -39,6 +39,12 @@ data class UserPreferences(
     val providerFallbackEnabled: Boolean = true,
     // Smart Home
     val smartHomeEnabled: Boolean = false,
+    val smartHomeAiControl: Boolean = true,  // allow Alfred/Jenny to control devices
+    // Tuya credentials (sent to backend at runtime)
+    val tuyaClientId: String = "",
+    val tuyaClientSecret: String = "",
+    val tuyaUserId: String = "",
+    val tuyaRegion: String = "EU",
     // Onboarding
     val onboardingCompleted: Boolean = false,
     // Jenny outfit (CASUAL / SERATA / BIKINI)
@@ -58,17 +64,29 @@ data class ProviderInfo(
     val avgLatencyMs: Int,
 )
 
-/** Local representation of a Tuya smart home device. */
+/** Local representation of an enriched smart home device. */
 data class SmartHomeDevice(
     val id: String,
     val name: String,
-    val category: String,
+    val nameCustom: String = "",
+    val category: String = "",
+    val type: String = "switch",   // light | switch | thermostat | fan | camera | curtain | ac
+    val source: String = "tuya",
     val productName: String = "",
     val online: Boolean = false,
     val isOn: Boolean = false,
-    val brightness: Int? = null,      // 10–1000, null if not supported
-    val temperature: Float? = null,   // current temp in °C, null if not applicable
-)
+    val brightness: Int? = null,       // 0-100 percentage
+    val temperature: Float? = null,    // current temp in °C
+    val capabilities: List<String> = emptyList(),
+    val visible: Boolean = true,
+) {
+    /** Display name: custom name if set, otherwise the Tuya name. */
+    val displayName: String get() = nameCustom.ifBlank { name }
+
+    val canDim: Boolean get() = "brightness" in capabilities
+    val canChangeColor: Boolean get() = "colour" in capabilities
+    val hasTemperature: Boolean get() = "temperature" in capabilities
+}
 
 /** A streaming event from ChatRepository.streamMessage(). */
 sealed class StreamEvent {
@@ -77,4 +95,8 @@ sealed class StreamEvent {
     data class FallbackUsed(val providerId: String) : StreamEvent()
     data class Done(val fullText: String, val providerId: String) : StreamEvent()
     data class Error(val message: String) : StreamEvent()
+    /** A smart home command was successfully executed by the AI. */
+    data class CommandExecuted(val deviceName: String, val action: String) : StreamEvent()
+    /** A smart home command attempted by the AI failed. */
+    data class CommandFailed(val deviceName: String, val error: String) : StreamEvent()
 }

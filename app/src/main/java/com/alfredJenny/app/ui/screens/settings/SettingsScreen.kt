@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import com.alfredJenny.app.data.model.SmartHomeDevice
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -829,69 +830,211 @@ private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel
 
 @Composable
 private fun SmartHomeAdminSection(state: SettingsUiState, viewModel: SettingsViewModel) {
-    SectionLabel("Tuya Cloud credentials")
-    Text(
-        "Le credenziali Tuya vengono salvate nel file .env del backend.",
-        style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant
-    )
+    val prefs = state.preferences
+    var showSecret by remember { mutableStateOf(false) }
 
-    SectionLabel("Abilita Smart Home")
+    // ── General toggle ────────────────────────────────────────────────────────
+    SectionLabel("Generali")
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text("Mostra tab Casa nella navigazione", color = OnSurface, modifier = Modifier.weight(1f))
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Mostra tab Smart Home", color = OnBackground, fontWeight = FontWeight.Medium)
+            Text("Aggiunge il tab Casa alla navigazione", style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+        }
         Switch(
-            checked = state.preferences.smartHomeEnabled,
+            checked = prefs.smartHomeEnabled,
             onCheckedChange = viewModel::onSmartHomeEnabledChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = SmartHomeAmberLight,
-                checkedTrackColor = SmartHomeAmberLight.copy(alpha = 0.4f),
-            )
+            colors = SwitchDefaults.colors(checkedThumbColor = SmartHomeAmberLight, checkedTrackColor = SmartHomeAmberLight.copy(0.4f))
+        )
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Alfred e Jenny controllano i dispositivi", color = OnBackground, fontWeight = FontWeight.Medium)
+            Text("Permette agli assistenti di eseguire comandi smart home", style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+        }
+        Switch(
+            checked = prefs.smartHomeAiControl,
+            onCheckedChange = viewModel::onSmartHomeAiControlChange,
+            colors = SwitchDefaults.colors(checkedThumbColor = SmartHomeAmberLight, checkedTrackColor = SmartHomeAmberLight.copy(0.4f))
         )
     }
 
     HorizontalDivider(color = SurfaceVariant)
-    SectionLabel("Dispositivi Tuya")
 
-    if (state.isDiscoveringDevices) {
-        Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = SmartHomeAmberLight, modifier = Modifier.size(28.dp))
-        }
-    } else {
+    // ── Tuya connector ────────────────────────────────────────────────────────
+    SectionLabel("TUYA CONNECTOR")
+
+    // Region dropdown
+    var showRegionMenu by remember { mutableStateOf(false) }
+    val regions = listOf("EU", "US", "CN", "IN")
+    val regionLabels = mapOf(
+        "EU" to "Europa — openapi.tuyaeu.com",
+        "US" to "America — openapi.tuyaus.com",
+        "CN" to "Cina — openapi.tuyacn.com",
+        "IN" to "India — openapi.tuyain.com",
+    )
+    Box {
         OutlinedButton(
-            onClick = viewModel::discoverDevices,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, SmartHomeAmberLight)
+            onClick = { showRegionMenu = true },
+            modifier = Modifier.fillMaxWidth(),
+            border = androidx.compose.foundation.BorderStroke(1.dp, OnSurfaceVariant),
         ) {
-            Icon(Icons.Default.Search, contentDescription = null, tint = SmartHomeAmberLight, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Scopri dispositivi", fontWeight = FontWeight.SemiBold, color = SmartHomeAmberLight)
+            Text("Regione: ${regionLabels[prefs.tuyaRegion] ?: prefs.tuyaRegion}", color = OnBackground, modifier = Modifier.weight(1f))
+            Icon(Icons.Default.ArrowDropDown, null, tint = OnSurfaceVariant)
+        }
+        DropdownMenu(
+            expanded = showRegionMenu,
+            onDismissRequest = { showRegionMenu = false },
+        ) {
+            regions.forEach { r ->
+                DropdownMenuItem(
+                    text = { Text(regionLabels[r] ?: r, color = OnBackground) },
+                    onClick = { viewModel.onTuyaRegionChange(r); showRegionMenu = false },
+                )
+            }
         }
     }
 
+    OutlinedTextField(
+        value = prefs.tuyaClientId,
+        onValueChange = viewModel::onTuyaClientIdChange,
+        label = { Text("Client ID") },
+        placeholder = { Text("xxxxxxxxxxxxxxxxxxxxxxxxx", color = OnSurfaceVariant) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        colors = outlinedColors(),
+    )
+
+    OutlinedTextField(
+        value = prefs.tuyaClientSecret,
+        onValueChange = viewModel::onTuyaClientSecretChange,
+        label = { Text("Client Secret") },
+        visualTransformation = if (showSecret) androidx.compose.ui.text.input.VisualTransformation.None
+                               else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+        trailingIcon = {
+            TextButton(onClick = { showSecret = !showSecret }) {
+                Text(if (showSecret) "Nascondi" else "Mostra", color = SmartHomeAmberLight,
+                    fontSize = MaterialTheme.typography.labelSmall.fontSize)
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        colors = outlinedColors(),
+    )
+
+    OutlinedTextField(
+        value = prefs.tuyaUserId,
+        onValueChange = viewModel::onTuyaUserIdChange,
+        label = { Text("User UID (opzionale)") },
+        placeholder = { Text("Lascia vuoto per usare tutti i dispositivi", color = OnSurfaceVariant) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        colors = outlinedColors(),
+    )
+
+    // Test + sync buttons
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (state.isTuyaTesting) {
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = SmartHomeAmberLight, modifier = Modifier.size(28.dp))
+            }
+        } else {
+            OutlinedButton(
+                onClick = { viewModel.save(); viewModel.testTuyaConnection() },
+                modifier = Modifier.weight(1f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, SmartHomeAmberLight),
+            ) {
+                Icon(Icons.Default.NetworkCheck, null, tint = SmartHomeAmberLight, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Test", color = SmartHomeAmberLight, fontSize = 13.sp)
+            }
+        }
+        OutlinedButton(
+            onClick = viewModel::discoverDevices,
+            modifier = Modifier.weight(1f),
+            enabled = !state.isDiscoveringDevices,
+            border = androidx.compose.foundation.BorderStroke(1.dp, SmartHomeAmberLight),
+        ) {
+            if (state.isDiscoveringDevices) {
+                CircularProgressIndicator(color = SmartHomeAmberLight, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            } else {
+                Icon(Icons.Default.Sync, null, tint = SmartHomeAmberLight, modifier = Modifier.size(16.dp))
+            }
+            Spacer(Modifier.width(4.dp))
+            Text("Sincronizza", color = SmartHomeAmberLight, fontSize = 13.sp)
+        }
+    }
+
+    // Test result
+    if (state.tuyaTestResult != null) {
+        Surface(shape = RoundedCornerShape(8.dp), color = SuccessGreen.copy(0.12f), modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(state.tuyaTestResult!!, color = SuccessGreen, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                IconButton(onClick = viewModel::dismissTuyaTestResult, modifier = Modifier.size(20.dp)) {
+                    Icon(Icons.Default.Close, null, tint = SuccessGreen, modifier = Modifier.size(14.dp))
+                }
+            }
+        }
+    }
+    if (state.tuyaTestError != null) {
+        Surface(shape = RoundedCornerShape(8.dp), color = ErrorRed.copy(0.12f), modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Error, null, tint = ErrorRed, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(state.tuyaTestError!!, color = ErrorRed, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                IconButton(onClick = viewModel::dismissTuyaTestResult, modifier = Modifier.size(20.dp)) {
+                    Icon(Icons.Default.Close, null, tint = ErrorRed, modifier = Modifier.size(14.dp))
+                }
+            }
+        }
+    }
     if (state.discoveryError != null) {
         Text(state.discoveryError!!, color = ErrorRed, style = MaterialTheme.typography.bodySmall)
     }
 
-    if (state.discoveredDevices.isNotEmpty()) {
+    HorizontalDivider(color = SurfaceVariant)
+
+    // ── Device list (discovered) ──────────────────────────────────────────────
+    SectionLabel("GESTIONE DISPOSITIVI")
+    if (state.discoveredDevices.isEmpty()) {
+        Text(
+            "Clicca 'Test' o 'Sincronizza' per trovare i dispositivi.",
+            style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant,
+        )
+    } else {
         Text(
             "${state.discoveredDevices.size} dispositivi trovati:",
-            color = SuccessGreen, fontWeight = FontWeight.Medium
+            color = SuccessGreen, fontWeight = FontWeight.Medium,
         )
         state.discoveredDevices.forEach { device ->
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = SurfaceVariant,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Surface(shape = RoundedCornerShape(8.dp), color = SurfaceVariant, modifier = Modifier.fillMaxWidth()) {
                 Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(device.name, color = OnBackground, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                        Text("ID: ${device.id}  •  ${device.category}", color = OnSurfaceVariant, fontSize = 11.sp)
-                        Text(if (device.online) "online" else "offline",
-                            color = if (device.online) SuccessGreen else OnSurfaceVariant, fontSize = 11.sp)
+                        Text(device.displayName, color = OnBackground, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                        Text("ID: ${device.id}  •  ${device.type}", color = OnSurfaceVariant, fontSize = 10.sp)
+                    }
+                    Surface(
+                        shape = CircleShape,
+                        color = if (device.online) SuccessGreen.copy(0.15f) else SurfaceVariant,
+                    ) {
+                        Text(
+                            if (device.online) "online" else "offline",
+                            color = if (device.online) SuccessGreen else OnSurfaceVariant,
+                            fontSize = 9.sp,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
                     }
                 }
             }
@@ -899,31 +1042,39 @@ private fun SmartHomeAdminSection(state: SettingsUiState, viewModel: SettingsVie
     }
 
     HorizontalDivider(color = SurfaceVariant)
-    Text(
-        "💡 Nota: le credenziali Tuya (TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, TUYA_BASE_URL) " +
-        "devono essere configurate nel file .env del server backend.",
-        style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant
-    )
 
-    // TODO: Google Home integration
-    // Google Home Local API (local SDK) or Google Home API (cloud) support is planned.
-    // Requires Google Home Developer Console setup and OAuth2 flow.
-    // See: https://developers.home.google.com/
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = SurfaceVariant.copy(alpha = 0.5f),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Home, contentDescription = null, tint = OnSurfaceVariant, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Column {
-                Text("Google Home", color = OnSurfaceVariant, fontWeight = FontWeight.Medium, fontSize = 13.sp)
-                Text("TODO: supporto Google Home via Google Home API (OAuth2 + SDK)", color = OnSurfaceVariant, fontSize = 11.sp)
+    // ── Future integrations ───────────────────────────────────────────────────
+    SectionLabel("ALEXA / GOOGLE HOME")
+
+    Surface(shape = RoundedCornerShape(10.dp), color = SurfaceVariant.copy(0.5f), modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("🔊", fontSize = 22.sp)
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Amazon Alexa", color = OnSurfaceVariant, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                Text("Integrazione in sviluppo", color = OnSurfaceVariant.copy(0.6f), fontSize = 11.sp)
+            }
+            Surface(shape = RoundedCornerShape(4.dp), color = OnSurfaceVariant.copy(0.1f)) {
+                Text("Prossimamente", color = OnSurfaceVariant, fontSize = 9.sp,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
             }
         }
     }
 
+    Surface(shape = RoundedCornerShape(10.dp), color = SurfaceVariant.copy(0.5f), modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("🏠", fontSize = 22.sp)
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Google Home", color = OnSurfaceVariant, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                Text("Integrazione in sviluppo", color = OnSurfaceVariant.copy(0.6f), fontSize = 11.sp)
+            }
+            Surface(shape = RoundedCornerShape(4.dp), color = OnSurfaceVariant.copy(0.1f)) {
+                Text("Prossimamente", color = OnSurfaceVariant, fontSize = 9.sp,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+            }
+        }
+    }
+
+    HorizontalDivider(color = SurfaceVariant)
     SaveButton(viewModel)
 }
 

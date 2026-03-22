@@ -39,6 +39,10 @@ data class SettingsUiState(
     val isDiscoveringDevices: Boolean = false,
     val discoveredDevices: List<SmartHomeDevice> = emptyList(),
     val discoveryError: String? = null,
+    // Tuya connection test
+    val isTuyaTesting: Boolean = false,
+    val tuyaTestResult: String? = null,  // "Connessione riuscita! N dispositivi trovati"
+    val tuyaTestError: String? = null,
 )
 
 @HiltViewModel
@@ -96,6 +100,11 @@ class SettingsViewModel @Inject constructor(
     fun onDebugModeChange(enabled: Boolean)            { update { copy(debugMode = enabled) } }
     fun onFallbackEnabledChange(enabled: Boolean)      { update { copy(providerFallbackEnabled = enabled) } }
     fun onSmartHomeEnabledChange(enabled: Boolean)     { update { copy(smartHomeEnabled = enabled) } }
+    fun onSmartHomeAiControlChange(enabled: Boolean)  { update { copy(smartHomeAiControl = enabled) } }
+    fun onTuyaClientIdChange(id: String)              { update { copy(tuyaClientId = id) } }
+    fun onTuyaClientSecretChange(s: String)           { update { copy(tuyaClientSecret = s) } }
+    fun onTuyaUserIdChange(id: String)                { update { copy(tuyaUserId = id) } }
+    fun onTuyaRegionChange(r: String)                 { update { copy(tuyaRegion = r) } }
 
     // ── Provider management (backend) ─────────────────────────────────────────
 
@@ -179,6 +188,39 @@ class SettingsViewModel @Inject constructor(
 
     // ── Smart Home ────────────────────────────────────────────────────────────
 
+    fun testTuyaConnection() {
+        val p = _uiState.value.preferences
+        viewModelScope.launch {
+            _uiState.update { it.copy(isTuyaTesting = true, tuyaTestResult = null, tuyaTestError = null) }
+            smartHomeRepository.updateTuyaConfig(
+                clientId = p.tuyaClientId,
+                clientSecret = p.tuyaClientSecret,
+                userUid = p.tuyaUserId,
+                region = p.tuyaRegion,
+            ).onFailure { err ->
+                _uiState.update { it.copy(isTuyaTesting = false, tuyaTestError = "Errore: ${err.message}") }
+                return@launch
+            }
+            smartHomeRepository.syncDevices()
+                .onSuccess { (devices, _) ->
+                    _uiState.update {
+                        it.copy(
+                            isTuyaTesting = false,
+                            tuyaTestResult = "Connessione riuscita! ${devices.size} dispositivi trovati.",
+                            discoveredDevices = devices,
+                        )
+                    }
+                }
+                .onFailure { err ->
+                    _uiState.update { it.copy(isTuyaTesting = false, tuyaTestError = "Errore: ${err.message}") }
+                }
+        }
+    }
+
+    fun dismissTuyaTestResult() {
+        _uiState.update { it.copy(tuyaTestResult = null, tuyaTestError = null) }
+    }
+
     fun discoverDevices() {
         viewModelScope.launch {
             _uiState.update { it.copy(isDiscoveringDevices = true, discoveryError = null) }
@@ -220,6 +262,11 @@ class SettingsViewModel @Inject constructor(
             preferencesRepository.saveDebugMode(p.debugMode)
             preferencesRepository.saveFallbackEnabled(p.providerFallbackEnabled)
             preferencesRepository.saveSmartHomeEnabled(p.smartHomeEnabled)
+            preferencesRepository.saveSmartHomeAiControl(p.smartHomeAiControl)
+            preferencesRepository.saveTuyaClientId(p.tuyaClientId)
+            preferencesRepository.saveTuyaClientSecret(p.tuyaClientSecret)
+            preferencesRepository.saveTuyaUserId(p.tuyaUserId)
+            preferencesRepository.saveTuyaRegion(p.tuyaRegion)
             preferencesRepository.saveJennyAutoOutfit(p.jennyAutoOutfit)
             _uiState.update { it.copy(isSaved = true) }
         }

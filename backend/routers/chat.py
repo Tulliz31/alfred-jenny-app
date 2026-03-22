@@ -9,30 +9,47 @@ from models.user import UserInDB
 from services.auth_service import get_current_user
 from services.companion_service import get_companion, get_companions_for_role, build_jenny_system_prompt
 from services import ai_service
-from smart_home import tuya_service
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-_TUYA_PATTERN = re.compile(r"\[TUYA:(\{[^]]+\})\]", re.DOTALL)
+# ── CMD tag pattern: [CMD:device_id:action] or [CMD:device_id:action:value] ────
+
+_CMD_PATTERN = re.compile(r"\[CMD:([^:\]\s]+):([^:\]\s]+)(?::([^\]\s]+))?\]")
 
 
-def _strip_tuya(text: str) -> str:
-    """Remove [TUYA:{...}] markers from the visible reply."""
-    return _TUYA_PATTERN.sub("", text).strip()
+def _strip_cmd(text: str) -> str:
+    """Remove [CMD:...] markers from the visible reply."""
+    return _CMD_PATTERN.sub("", text).strip()
 
 
-async def _execute_tuya_if_present(text: str) -> None:
-    """Parse and execute any [TUYA:{...}] command embedded in an AI reply."""
-    for m in _TUYA_PATTERN.finditer(text):
+async def _execute_commands(
+    text: str,
+) -> list[tuple[str, str, bool, str]]:
+    """
+    Parse and execute all [CMD:id:action:value?] tags in text.
+    Returns list of (display_name, action, success, message).
+    """
+    try:
+        from services.smart_home.smart_home_manager import get_manager
+        manager = get_manager()
+    except Exception:
+        return []
+
+    results: list[tuple[str, str, bool, str]] = []
+    for m in _CMD_PATTERN.finditer(text):
+        device_id = m.group(1).strip()
+        action = m.group(2).strip()
+        value = m.group(3).strip() if m.group(3) else None
+        if not device_id or not action:
+            continue
         try:
-            cmd = json.loads(m.group(1))
-            device_id = cmd.get("device_id", "")
-            action = cmd.get("action", "")
-            value = cmd.get("value")
-            if device_id and action:
-                await tuya_service.send_command(device_id, action, value)
-        except Exception:
-            pass
+            result = await manager.send_command(device_id, action, value)
+            display_name = manager.get_device_display_name(device_id)
+            results.append((display_name, action, result.success, result.message))
+        except Exception as e:
+            results.append((device_id, action, False, str(e)))
+    return results
+
 
 _SUMMARY_SYSTEM = (
     "Sei un assistente che crea riassunti concisi di conversazioni. "
@@ -50,18 +67,22 @@ async def _resolve_companion_and_prompt(body: ChatRequest, current_user: UserInD
         raise HTTPException(404, f"Companion '{body.companion_id}' non trovato")
     if not body.messages:
         raise HTTPException(422, "messages non può essere vuoto")
+
     if companion.id == "jenny":
         system_prompt = build_jenny_system_prompt(max(1, min(5, body.personality_level)))
     else:
         system_prompt = companion.system_prompt
-        # Inject smart home device list for Alfred (non-blocking: if Tuya fails, skip)
-        try:
-            smart_ctx = await tuya_service.get_devices_for_prompt()
-            if smart_ctx:
-                system_prompt = system_prompt + "\n\n" + smart_ctx
-        except Exception:
-            pass
-    # Inject long-term memory summary as first user/assistant context exchange
+
+    # Inject smart home device list for ALL companions (Alfred and Jenny)
+    try:
+        from services.smart_home.smart_home_manager import get_manager
+        smart_ctx = await get_manager().get_devices_for_prompt()
+        if smart_ctx:
+            system_prompt = system_prompt + "\n\n" + smart_ctx
+    except Exception:
+        pass
+
+    # Inject long-term memory summary
     if body.summary_context:
         prefix = ChatMessageIn(
             role=Role.user,
@@ -70,6 +91,7 @@ async def _resolve_companion_and_prompt(body: ChatRequest, current_user: UserInD
         messages = [prefix] + list(body.messages)
     else:
         messages = list(body.messages)
+
     # Resolve provider override
     provider: ProviderID | None = None
     if body.provider_override:
@@ -80,7 +102,7 @@ async def _resolve_companion_and_prompt(body: ChatRequest, current_user: UserInD
     return companion, system_prompt, messages, provider
 
 
-# ── Non-streaming ─────────────────────────────────────────────────────────────
+# ── Non-streaming ──────────────────────────────────────────────────────────────
 
 @router.post("", response_model=ChatResponse)
 async def send_message(body: ChatRequest, current_user: UserInDB = Depends(get_current_user)):
@@ -91,26 +113,28 @@ async def send_message(body: ChatRequest, current_user: UserInDB = Depends(get_c
         provider=provider,
         with_fallback=True,
     )
-    await _execute_tuya_if_present(reply)
+    cmd_results = await _execute_commands(reply)
     return ChatResponse(
-        reply=_strip_tuya(reply),
+        reply=_strip_cmd(reply),
         companion_id=companion.id,
         provider=provider_used.value,
         fallback_used=fallback_used,
     )
 
 
-# ── Streaming (SSE) ───────────────────────────────────────────────────────────
+# ── Streaming (SSE) ────────────────────────────────────────────────────────────
 
 @router.post("/stream")
 async def stream_message(body: ChatRequest, current_user: UserInDB = Depends(get_current_user)):
     """
     Server-Sent Events endpoint.
     Each event is a JSON object:
-      {"c": "<chunk>"}            — text chunk
-      {"provider": "<id>"}        — which provider is responding
-      {"fallback": "<id>"}        — fallback provider was activated
-      {"done": true}              — stream complete
+      {"c": "<chunk>"}             — text chunk
+      {"provider": "<id>"}         — which provider is responding
+      {"fallback": "<id>"}         — fallback provider was activated
+      {"cmd_ok": "name:action"}    — smart home command succeeded
+      {"cmd_err": "name:error"}    — smart home command failed
+      {"done": true}               — stream complete
     """
     companion, system_prompt, messages, provider = await _resolve_companion_and_prompt(body, current_user)
 
@@ -130,13 +154,21 @@ async def stream_message(body: ChatRequest, current_user: UserInDB = Depends(get
                     pid = token[len("\x00FALLBACK:"):]
                     yield f"data: {json.dumps({'fallback': pid})}\n\n"
                 else:
-                    # Strip [TUYA:...] markers from the visible stream
-                    clean = _TUYA_PATTERN.sub("", token)
+                    # Strip [CMD:...] markers from the visible stream
+                    clean = _CMD_PATTERN.sub("", token)
                     full_text.append(token)  # keep raw for command detection
                     if clean:
                         yield f"data: {json.dumps({'c': clean})}\n\n"
-            # After stream complete: execute any embedded Tuya command
-            await _execute_tuya_if_present("".join(full_text))
+
+            # After stream completes: execute embedded commands and emit results
+            full_raw = "".join(full_text)
+            cmd_results = await _execute_commands(full_raw)
+            for (name, action, ok, msg) in cmd_results:
+                if ok:
+                    yield f"data: {json.dumps({'cmd_ok': f'{name}:{action}'})}\n\n"
+                else:
+                    yield f"data: {json.dumps({'cmd_err': f'{name}:{msg or action}'})}\n\n"
+
             yield f"data: {json.dumps({'done': True})}\n\n"
         except HTTPException as e:
             yield f"data: {json.dumps({'error': e.detail})}\n\n"
@@ -153,18 +185,13 @@ async def stream_message(body: ChatRequest, current_user: UserInDB = Depends(get
     )
 
 
-# ── Summarize ─────────────────────────────────────────────────────────────────
+# ── Summarize ──────────────────────────────────────────────────────────────────
 
 @router.post("/summarize", response_model=SummarizeResponse)
 async def summarize_conversation(body: SummarizeRequest, current_user: UserInDB = Depends(get_current_user)):
-    """
-    Given a list of messages, produce a concise summary for long-term memory.
-    Uses the active provider (with fallback).
-    """
     if not body.messages:
         raise HTTPException(422, "messages non può essere vuoto")
 
-    # Build a single-turn summarization request
     conversation_text = "\n".join(
         f"{'Utente' if m.role == Role.user else 'Assistente'}: {m.content}"
         for m in body.messages
@@ -172,7 +199,6 @@ async def summarize_conversation(body: SummarizeRequest, current_user: UserInDB 
     summary_messages = [
         ChatMessageIn(role=Role.user, content=f"Conversazione:\n\n{conversation_text}\n\nCreane un riassunto conciso.")
     ]
-
     summary, _, _ = await ai_service.chat(
         system_prompt=_SUMMARY_SYSTEM,
         messages=summary_messages,

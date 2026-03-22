@@ -130,7 +130,7 @@ fun MainScreen(
             when (selectedTab) {
                 MainTab.HOME       -> HomeScreen(onOpenSettings = onOpenSettings)
                 MainTab.JENNY      -> JennyScreen()
-                MainTab.SMART_HOME -> SmartHomeScreen()
+                MainTab.SMART_HOME -> SmartHomeScreen(onOpenSettings = onOpenSettings)
                 MainTab.SETTINGS   -> { /* handled via onOpenSettings */ }
             }
         }

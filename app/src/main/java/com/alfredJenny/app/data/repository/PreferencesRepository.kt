@@ -43,6 +43,12 @@ class PreferencesRepository @Inject constructor(
         val KEY_FALLBACK_ENABLED      = booleanPreferencesKey("provider_fallback_enabled")
         // Smart Home
         val KEY_SMART_HOME_ENABLED    = booleanPreferencesKey("smart_home_enabled")
+        val KEY_SMART_HOME_AI_CONTROL = booleanPreferencesKey("smart_home_ai_control")
+        // Tuya credentials
+        val KEY_TUYA_CLIENT_ID        = stringPreferencesKey("tuya_client_id")
+        val KEY_TUYA_CLIENT_SECRET    = stringPreferencesKey("tuya_client_secret")
+        val KEY_TUYA_USER_ID          = stringPreferencesKey("tuya_user_id")
+        val KEY_TUYA_REGION           = stringPreferencesKey("tuya_region")
         // Onboarding
         val KEY_ONBOARDING_COMPLETED  = booleanPreferencesKey("onboarding_completed")
         // Jenny outfit
@@ -74,7 +80,12 @@ class PreferencesRepository @Inject constructor(
             retryCount          = prefs[KEY_RETRY_COUNT]          ?: 2,
             debugMode           = prefs[KEY_DEBUG_MODE]           ?: false,
             providerFallbackEnabled = prefs[KEY_FALLBACK_ENABLED] ?: true,
-            smartHomeEnabled        = prefs[KEY_SMART_HOME_ENABLED] ?: false,
+            smartHomeEnabled        = prefs[KEY_SMART_HOME_ENABLED]    ?: false,
+            smartHomeAiControl      = prefs[KEY_SMART_HOME_AI_CONTROL] ?: true,
+            tuyaClientId        = prefs[KEY_TUYA_CLIENT_ID]       ?: "",
+            tuyaClientSecret    = prefs[KEY_TUYA_CLIENT_SECRET]   ?: "",
+            tuyaUserId          = prefs[KEY_TUYA_USER_ID]         ?: "",
+            tuyaRegion          = prefs[KEY_TUYA_REGION]          ?: "EU",
             onboardingCompleted     = prefs[KEY_ONBOARDING_COMPLETED] ?: false,
             jennyOutfit             = prefs[KEY_JENNY_OUTFIT]      ?: "CASUAL",
             jennyAutoOutfit         = prefs[KEY_JENNY_AUTO_OUTFIT] ?: true,
@@ -104,7 +115,13 @@ class PreferencesRepository @Inject constructor(
     suspend fun saveDebugMode(enabled: Boolean)      { dataStore.edit { it[KEY_DEBUG_MODE]        = enabled } }
     suspend fun saveFallbackEnabled(enabled: Boolean){ dataStore.edit { it[KEY_FALLBACK_ENABLED]  = enabled } }
     // Smart Home
-    suspend fun saveSmartHomeEnabled(enabled: Boolean){ dataStore.edit { it[KEY_SMART_HOME_ENABLED] = enabled } }
+    suspend fun saveSmartHomeEnabled(enabled: Boolean)   { dataStore.edit { it[KEY_SMART_HOME_ENABLED]    = enabled } }
+    suspend fun saveSmartHomeAiControl(enabled: Boolean) { dataStore.edit { it[KEY_SMART_HOME_AI_CONTROL] = enabled } }
+    // Tuya credentials
+    suspend fun saveTuyaClientId(id: String)         { dataStore.edit { it[KEY_TUYA_CLIENT_ID]     = id } }
+    suspend fun saveTuyaClientSecret(s: String)      { dataStore.edit { it[KEY_TUYA_CLIENT_SECRET] = s } }
+    suspend fun saveTuyaUserId(id: String)           { dataStore.edit { it[KEY_TUYA_USER_ID]       = id } }
+    suspend fun saveTuyaRegion(r: String)            { dataStore.edit { it[KEY_TUYA_REGION]        = r } }
     // Onboarding
     suspend fun saveOnboardingCompleted(done: Boolean){ dataStore.edit { it[KEY_ONBOARDING_COMPLETED] = done } }
     // Jenny outfit

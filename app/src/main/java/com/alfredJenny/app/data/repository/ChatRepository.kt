@@ -160,6 +160,18 @@ class ChatRepository @Inject constructor(
                             currentProvider = json.getString("provider")
                             trySend(StreamEvent.ProviderAnnounced(currentProvider))
                         }
+                        json.has("cmd_ok") -> {
+                            val parts = json.getString("cmd_ok").split(":", limit = 2)
+                            val name = parts.getOrElse(0) { "dispositivo" }
+                            val action = parts.getOrElse(1) { "comando" }
+                            trySend(StreamEvent.CommandExecuted(name, action))
+                        }
+                        json.has("cmd_err") -> {
+                            val parts = json.getString("cmd_err").split(":", limit = 2)
+                            val name = parts.getOrElse(0) { "dispositivo" }
+                            val err = parts.getOrElse(1) { "errore" }
+                            trySend(StreamEvent.CommandFailed(name, err))
+                        }
                         json.has("c") -> {
                             val chunk = json.getString("c")
                             if (chunk.isNotEmpty()) {

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/Fabio/progetti/AlfredJenny -not -path */build/* -not -path */.gradle/* -not -path */.idea/* -not -path */.venv/* -not -path */__pycache__/* -type d)",
+      "Bash(git add:*)"
+    ]
+  }
+}

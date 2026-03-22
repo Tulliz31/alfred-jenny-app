@@ -3,8 +3,10 @@ package com.alfredJenny.app.ui.screens.smarthome
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -27,126 +29,263 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alfredJenny.app.data.model.SmartHomeDevice
 import com.alfredJenny.app.ui.theme.*
+import kotlinx.coroutines.delay
 
-// ── Color additions for Smart Home ────────────────────────────────────────────
-private val SmartHomeAmber = Color(0xFFFFA726)
-private val SmartHomeAmberDim = Color(0xFF3D2A00)
-private val SmartHomeGreen = Color(0xFF4BCF7E)
+// ── Colors ────────────────────────────────────────────────────────────────────
+
+private val Amber       = Color(0xFFFFA726)
+private val AmberDim    = Color(0xFF3D2A00)
+private val AmberOff    = Color(0xFF1E1E1E)
+private val TealOnline  = Color(0xFF4BCF7E)
+private val TuyaBadge   = Color(0xFF1A6B8A)
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SmartHomeScreen(viewModel: SmartHomeViewModel = hiltViewModel()) {
+fun SmartHomeScreen(
+    onOpenSettings: () -> Unit = {},
+    viewModel: SmartHomeViewModel = hiltViewModel(),
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Background)
-    ) {
-        // Top bar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Default.Home,
-                contentDescription = null,
-                tint = SmartHomeAmber,
-                modifier = Modifier.size(22.dp)
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                "Smart Home",
-                color = OnBackground,
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp,
-                modifier = Modifier.weight(1f),
-            )
-            if (state.isLoading) {
-                CircularProgressIndicator(
-                    color = SmartHomeAmber,
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp
-                )
-            } else {
-                IconButton(onClick = viewModel::load) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Aggiorna", tint = OnSurfaceVariant)
-                }
-            }
+    // Show command feedback as snackbar
+    LaunchedEffect(state.commandFeedback) {
+        state.commandFeedback?.let { msg ->
+            snackbarHostState.showSnackbar(msg, duration = SnackbarDuration.Short)
+            viewModel.dismissCommandFeedback()
         }
+    }
 
-        HorizontalDivider(color = SurfaceVariant)
+    // Rename dialog
+    if (state.renamingDeviceId != null) {
+        RenameDialog(
+            currentName = state.renameInput,
+            onNameChange = viewModel::onRenameInputChange,
+            onConfirm = viewModel::confirmRename,
+            onDismiss = viewModel::cancelRename,
+        )
+    }
 
-        // Error banner
-        if (state.error != null) {
-            Surface(
-                color = ErrorRed.copy(alpha = 0.15f),
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = Background,
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(Background)
+        ) {
+            // ── Top bar ───────────────────────────────────────────────────────
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(8.dp),
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Default.Warning, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(state.error ?: "", color = ErrorRed, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                    IconButton(onClick = viewModel::dismissError, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(16.dp))
+                Icon(
+                    imageVector = Icons.Default.Home,
+                    contentDescription = null,
+                    tint = Amber,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Smart Home",
+                    color = OnBackground,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                if (state.isSyncing || state.isLoading) {
+                    CircularProgressIndicator(
+                        color = Amber,
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    IconButton(onClick = viewModel::syncDevices) {
+                        Icon(Icons.Default.Sync, contentDescription = "Sincronizza", tint = OnSurfaceVariant)
+                    }
+                    IconButton(onClick = viewModel::load) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Aggiorna", tint = OnSurfaceVariant)
                     }
                 }
             }
-        }
 
-        // Empty state
-        if (!state.isLoading && state.devices.isEmpty() && state.error == null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.Home,
-                        contentDescription = null,
-                        tint = OnSurfaceVariant,
-                        modifier = Modifier.size(56.dp)
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Text("Nessun dispositivo trovato", color = OnSurfaceVariant, fontWeight = FontWeight.Medium)
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Configura le credenziali Tuya nelle Impostazioni admin.",
-                        color = OnSurfaceVariant.copy(alpha = 0.7f),
-                        style = MaterialTheme.typography.bodySmall,
+            HorizontalDivider(color = SurfaceVariant)
+
+            // ── Error banner ──────────────────────────────────────────────────
+            if (state.error != null) {
+                Surface(
+                    color = ErrorRed.copy(alpha = 0.15f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(8.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Default.Warning, null, tint = ErrorRed, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            state.error ?: "",
+                            color = ErrorRed,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = viewModel::dismissError,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(Icons.Default.Close, null, tint = ErrorRed, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+
+            // ── Tuya not configured ───────────────────────────────────────────
+            if (!state.tuyaConfigured) {
+                TuyaSetupScreen(onOpenSettings = onOpenSettings)
+                return@Column
+            }
+
+            // ── Empty state ───────────────────────────────────────────────────
+            if (!state.isLoading && state.devices.isEmpty() && state.error == null) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.Home,
+                            null,
+                            tint = OnSurfaceVariant,
+                            modifier = Modifier.size(56.dp)
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "Nessun dispositivo trovato",
+                            color = OnSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Premi Sincronizza per cercare i dispositivi Tuya.",
+                            color = OnSurfaceVariant.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+                return@Column
+            }
+
+            // ── Device grid ───────────────────────────────────────────────────
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 80.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f),
+            ) {
+                items(state.devices, key = { it.id }) { device ->
+                    DeviceCard(
+                        device = device,
+                        isPending = state.pendingDeviceId == device.id,
+                        isExpanded = state.expandedDeviceId == device.id,
+                        onToggle = { viewModel.toggleDevice(device) },
+                        onExpand = {
+                            viewModel.expandDevice(
+                                if (state.expandedDeviceId == device.id) null else device.id
+                            )
+                        },
+                        onBrightnessChange = { level -> viewModel.setBrightness(device, level) },
+                        onLongPress = {
+                            viewModel.startRename(device.id, device.displayName)
+                        },
                     )
                 }
             }
-            return@Column
-        }
 
-        // Device grid
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxSize(),
+            // ── Bottom bar ────────────────────────────────────────────────────
+            if (state.lastUpdated.isNotBlank()) {
+                HorizontalDivider(color = SurfaceVariant)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Surface)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Default.Schedule,
+                        null,
+                        tint = OnSurfaceVariant,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        "Aggiornato: ${state.lastUpdated}",
+                        color = OnSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        "${state.devices.count { it.online }} online",
+                        color = TealOnline,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ── Tuya not configured ───────────────────────────────────────────────────────
+
+@Composable
+private fun TuyaSetupScreen(onOpenSettings: () -> Unit) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(32.dp),
         ) {
-            items(state.devices, key = { it.id }) { device ->
-                DeviceCard(
-                    device = device,
-                    isPending = state.pendingDeviceId == device.id,
-                    isExpanded = state.expandedDeviceId == device.id,
-                    onToggle = { viewModel.toggleDevice(device) },
-                    onExpand = {
-                        viewModel.expandDevice(
-                            if (state.expandedDeviceId == device.id) null else device.id
-                        )
-                    },
-                    onBrightnessChange = { level -> viewModel.setBrightness(device, level) },
-                )
+            Surface(
+                shape = CircleShape,
+                color = Amber.copy(alpha = 0.15f),
+                modifier = Modifier.size(80.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.Home,
+                        null,
+                        tint = Amber,
+                        modifier = Modifier.size(40.dp),
+                    )
+                }
+            }
+            Text(
+                "Connetti il tuo account Tuya",
+                color = OnBackground,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+            )
+            Text(
+                "Configura le credenziali Tuya nelle impostazioni admin per controllare i tuoi dispositivi smart home con Alfred e Jenny.",
+                color = OnSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+            Button(
+                onClick = onOpenSettings,
+                colors = ButtonDefaults.buttonColors(containerColor = Amber),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Default.Settings, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Configura", fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -154,6 +293,7 @@ fun SmartHomeScreen(viewModel: SmartHomeViewModel = hiltViewModel()) {
 
 // ── Device card ───────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DeviceCard(
     device: SmartHomeDevice,
@@ -162,11 +302,16 @@ private fun DeviceCard(
     onToggle: () -> Unit,
     onExpand: () -> Unit,
     onBrightnessChange: (Int) -> Unit,
+    onLongPress: () -> Unit,
 ) {
-    val cardColor = if (device.isOn) SmartHomeAmberDim else SurfaceVariant
+    val cardColor = when {
+        !device.online -> AmberOff
+        device.isOn    -> AmberDim
+        else           -> SurfaceVariant
+    }
     val iconTint = when {
         !device.online -> OnSurfaceVariant
-        device.isOn    -> SmartHomeAmber
+        device.isOn    -> Amber
         else           -> OnSurfaceVariant
     }
 
@@ -175,11 +320,16 @@ private fun DeviceCard(
         color = cardColor,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = device.online) { onExpand() },
+            .combinedClickable(
+                enabled = true,
+                onClick = { if (device.online) onExpand() },
+                onLongClick = onLongPress,
+            ),
         tonalElevation = 0.dp,
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            // Icon row
+
+            // Icon + badge row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -192,7 +342,7 @@ private fun DeviceCard(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        imageVector = deviceIcon(device.category),
+                        imageVector = deviceIcon(device.type),
                         contentDescription = null,
                         tint = iconTint,
                         modifier = Modifier.size(22.dp),
@@ -200,10 +350,20 @@ private fun DeviceCard(
                 }
                 Spacer(Modifier.weight(1f))
                 if (!device.online) {
-                    Text("offline", color = OnSurfaceVariant, fontSize = 10.sp)
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = ErrorRed.copy(alpha = 0.15f),
+                    ) {
+                        Text(
+                            "offline",
+                            color = ErrorRed,
+                            fontSize = 9.sp,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
                 } else if (isPending) {
                     CircularProgressIndicator(
-                        color = SmartHomeAmber,
+                        color = Amber,
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,
                     )
@@ -211,12 +371,10 @@ private fun DeviceCard(
                     Switch(
                         checked = device.isOn,
                         onCheckedChange = { onToggle() },
-                        modifier = Modifier
-                            .height(24.dp)
-                            .padding(0.dp),
+                        modifier = Modifier.height(24.dp),
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = SmartHomeAmber,
-                            checkedTrackColor = SmartHomeAmber.copy(alpha = 0.4f),
+                            checkedThumbColor = Amber,
+                            checkedTrackColor = Amber.copy(alpha = 0.4f),
                             uncheckedThumbColor = OnSurfaceVariant,
                             uncheckedTrackColor = SurfaceVariant,
                         ),
@@ -228,49 +386,70 @@ private fun DeviceCard(
 
             // Device name
             Text(
-                device.name,
-                color = if (device.isOn) OnBackground else OnSurfaceVariant,
+                device.displayName,
+                color = if (device.online && device.isOn) OnBackground else OnSurfaceVariant,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 maxLines = 2,
             )
 
-            // State label or temperature
-            if (device.temperature != null) {
+            // State text or temperature
+            when {
+                device.temperature != null ->
+                    Text(
+                        "%.1f°C".format(device.temperature),
+                        color = TealOnline,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                device.online && device.isOn && device.brightness != null ->
+                    Text(
+                        "Accesa ${device.brightness}%",
+                        color = Amber,
+                        fontSize = 11.sp,
+                    )
+                else ->
+                    Text(
+                        if (!device.online) "Non raggiungibile"
+                        else if (device.isOn) "Acceso" else "Spento",
+                        color = if (device.online && device.isOn) Amber else OnSurfaceVariant,
+                        fontSize = 11.sp,
+                    )
+            }
+
+            // Source badge
+            Spacer(Modifier.height(6.dp))
+            Surface(
+                shape = RoundedCornerShape(3.dp),
+                color = TuyaBadge.copy(alpha = 0.25f),
+            ) {
                 Text(
-                    "%.1f°C".format(device.temperature),
-                    color = SmartHomeGreen,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-            } else {
-                Text(
-                    if (!device.online) "Non raggiungibile"
-                    else if (device.isOn) "Acceso" else "Spento",
-                    color = if (device.isOn) SmartHomeAmber else OnSurfaceVariant,
-                    fontSize = 12.sp,
+                    device.source.uppercase(),
+                    color = TuyaBadge,
+                    fontSize = 8.sp,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
                 )
             }
 
             // Brightness slider (expanded)
             AnimatedVisibility(
-                visible = isExpanded && device.brightness != null && device.online,
+                visible = isExpanded && device.canDim && device.online,
                 enter = expandVertically(),
                 exit = shrinkVertically(),
             ) {
                 Column(modifier = Modifier.padding(top = 10.dp)) {
                     Text("Luminosità", color = OnSurfaceVariant, fontSize = 11.sp)
                     var sliderValue by remember(device.brightness) {
-                        mutableFloatStateOf((device.brightness ?: 500).toFloat())
+                        mutableFloatStateOf((device.brightness ?: 50).toFloat())
                     }
                     Slider(
                         value = sliderValue,
                         onValueChange = { sliderValue = it },
                         onValueChangeFinished = { onBrightnessChange(sliderValue.toInt()) },
-                        valueRange = 10f..1000f,
+                        valueRange = 0f..100f,
                         colors = SliderDefaults.colors(
-                            thumbColor = SmartHomeAmber,
-                            activeTrackColor = SmartHomeAmber,
+                            thumbColor = Amber,
+                            activeTrackColor = Amber,
                             inactiveTrackColor = SurfaceVariant,
                         ),
                     )
@@ -279,7 +458,7 @@ private fun DeviceCard(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text("Min", color = OnSurfaceVariant, fontSize = 10.sp)
-                        Text("${(sliderValue / 10).toInt()}%", color = SmartHomeAmber, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                        Text("${sliderValue.toInt()}%", color = Amber, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                         Text("Max", color = OnSurfaceVariant, fontSize = 10.sp)
                     }
                 }
@@ -288,15 +467,59 @@ private fun DeviceCard(
     }
 }
 
+// ── Rename dialog ─────────────────────────────────────────────────────────────
+
+@Composable
+private fun RenameDialog(
+    currentName: String,
+    onNameChange: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rinomina dispositivo", color = OnBackground) },
+        text = {
+            OutlinedTextField(
+                value = currentName,
+                onValueChange = onNameChange,
+                label = { Text("Nome") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Amber,
+                    unfocusedBorderColor = OnSurfaceVariant,
+                    focusedLabelColor = Amber,
+                    cursorColor = Amber,
+                    focusedTextColor = OnBackground,
+                    unfocusedTextColor = OnBackground,
+                )
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Salva", color = Amber, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annulla", color = OnSurfaceVariant)
+            }
+        },
+        containerColor = Surface,
+    )
+}
+
 // ── Icon mapping ──────────────────────────────────────────────────────────────
 
-private fun deviceIcon(category: String): ImageVector = when (category) {
-    "dj", "dd", "fwd", "dc", "xdd" -> Icons.Default.Lightbulb   // lights
-    "kg", "pc", "cz"                -> Icons.Default.Power         // switches / outlets
-    "wk", "wsdcg", "moes"          -> Icons.Default.Thermostat    // thermostats / sensors
-    "fs"                            -> Icons.Default.Air           // fans
-    "kt"                            -> Icons.Default.AcUnit        // AC
-    "cl", "msp"                     -> Icons.Default.Blinds        // curtains
-    "kfj"                           -> Icons.Default.LocalCafe     // coffee maker
-    else                            -> Icons.Default.Devices        // generic
+private fun deviceIcon(type: String): ImageVector = when (type) {
+    "light"     -> Icons.Default.Lightbulb
+    "switch"    -> Icons.Default.Power
+    "thermostat"-> Icons.Default.Thermostat
+    "fan"       -> Icons.Default.Air
+    "ac"        -> Icons.Default.AcUnit
+    "curtain"   -> Icons.Default.Blinds
+    "camera"    -> Icons.Default.Videocam
+    "appliance" -> Icons.Default.LocalCafe
+    else        -> Icons.Default.Devices
 }

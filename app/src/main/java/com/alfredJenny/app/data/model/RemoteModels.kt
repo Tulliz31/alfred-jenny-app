@@ -69,7 +69,9 @@ data class StreamChunkDto(
     @Json(name = "provider") val provider: String? = null,
     @Json(name = "fallback") val fallback: String? = null,
     @Json(name = "done") val done: Boolean = false,
-    @Json(name = "error") val error: String? = null
+    @Json(name = "error") val error: String? = null,
+    @Json(name = "cmd_ok") val cmdOk: String? = null,   // "device_name:action"
+    @Json(name = "cmd_err") val cmdErr: String? = null  // "device_name:error"
 )
 
 // ── Companions ────────────────────────────────────────────────────────────────
@@ -118,7 +120,7 @@ data class VoiceSpeakResponseDto(
     @Json(name = "voice_id") val voiceId: String
 )
 
-// ── Smart Home / Tuya ────────────────────────────────────────────────────────
+// ── Smart Home / Tuya (legacy) ────────────────────────────────────────────────
 
 @JsonClass(generateAdapter = true)
 data class TuyaDeviceDto(
@@ -149,6 +151,62 @@ data class CommandResultDto(
     @Json(name = "device_id") val deviceId: String,
     @Json(name = "action") val action: String,
     @Json(name = "message") val message: String = ""
+)
+
+// ── Smart Home v2 (enriched) ─────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class DeviceStatusInfoDto(
+    @Json(name = "is_on") val isOn: Boolean = false,
+    @Json(name = "brightness") val brightness: Int? = null,
+    @Json(name = "colour") val colour: String? = null,
+    @Json(name = "temperature") val temperature: Float? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class DeviceEnrichedDto(
+    @Json(name = "id") val id: String,
+    @Json(name = "name") val name: String,
+    @Json(name = "name_custom") val nameCustom: String = "",
+    @Json(name = "type") val type: String = "switch",
+    @Json(name = "source") val source: String = "tuya",
+    @Json(name = "online") val online: Boolean = false,
+    @Json(name = "status") val status: DeviceStatusInfoDto = DeviceStatusInfoDto(),
+    @Json(name = "capabilities") val capabilities: List<String> = emptyList(),
+    @Json(name = "visible") val visible: Boolean = true,
+)
+
+@JsonClass(generateAdapter = true)
+data class DevicesResponseDto(
+    @Json(name = "devices") val devices: List<DeviceEnrichedDto>,
+    @Json(name = "last_updated") val lastUpdated: String = "",
+)
+
+@JsonClass(generateAdapter = true)
+data class RenameDeviceDto(
+    @Json(name = "name") val name: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class ConnectorInfoDto(
+    @Json(name = "id") val id: String,
+    @Json(name = "name") val name: String,
+    @Json(name = "connected") val connected: Boolean,
+    @Json(name = "device_count") val deviceCount: Int = 0,
+    @Json(name = "status") val status: String = "",
+)
+
+@JsonClass(generateAdapter = true)
+data class ConnectorsResponseDto(
+    @Json(name = "connectors") val connectors: List<ConnectorInfoDto>,
+)
+
+@JsonClass(generateAdapter = true)
+data class TuyaConfigDto(
+    @Json(name = "client_id") val clientId: String,
+    @Json(name = "client_secret") val clientSecret: String,
+    @Json(name = "user_uid") val userUid: String = "",
+    @Json(name = "base_url") val baseUrl: String = "https://openapi.tuyaeu.com",
 )
 
 // ── API error ────────────────────────────────────────────────────────────────
