@@ -25,12 +25,14 @@ _CALENDAR_PATTERN = re.compile(r"\[READ_CALENDAR:(oggi|domani|settimana)\]")
 
 
 def _strip_action_tags(text: str) -> str:
-    """Remove [MEMO:...], [EVENT:...], [REMINDER:...], [READ_CALENDAR:...] from visible text."""
+    """Remove [MEMO:...], [EVENT:...], [REMINDER:...], [READ_CALENDAR:...] from visible text.
+    NOTE: deliberately no .strip() here — this is called per-chunk during streaming,
+    and stripping whitespace from each chunk would eat the spaces between words."""
     text = _MEMO_PATTERN.sub("", text)
     text = _EVENT_PATTERN.sub("", text)
     text = _REMINDER_PATTERN.sub("", text)
     text = _CALENDAR_PATTERN.sub("", text)
-    return text.strip()
+    return text
 
 
 def _extract_actions(text: str) -> dict:
