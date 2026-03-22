@@ -45,6 +45,7 @@ import kotlinx.coroutines.delay
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JennyScreen(
+    onOpenSettings: () -> Unit = {},
     viewModel: JennyViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -168,6 +169,9 @@ fun JennyScreen(
                     contentDescription = "Voce",
                     tint = if (state.voiceEnabled) JennyPurpleLight else OnSurfaceVariant
                 )
+            }
+            IconButton(onClick = onOpenSettings) {
+                Icon(Icons.Default.Settings, contentDescription = "Impostazioni", tint = OnSurfaceVariant)
             }
         }
 

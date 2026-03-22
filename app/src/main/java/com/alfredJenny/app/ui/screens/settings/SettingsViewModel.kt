@@ -31,12 +31,8 @@ data class SettingsUiState(
     val isLoadingProviders: Boolean = false,
     val providerError: String? = null,
     val isSettingProvider: Boolean = false,
-    // Service section unlock
-    val showPasswordField: Boolean = false,
-    val passwordInput: String = "",
-    val passwordError: String? = null,
-    val isVerifyingPassword: Boolean = false,
-    val serviceSectionUnlocked: Boolean = false,
+    // Role-based access
+    val isAdmin: Boolean = false,
     // Jenny management
     val showClearJennyDialog: Boolean = false,
     val jennyConversationsCleared: Boolean = false,
@@ -95,7 +91,7 @@ class SettingsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             preferencesRepository.userPreferences.collect { prefs ->
-                _uiState.update { it.copy(preferences = prefs) }
+                _uiState.update { it.copy(preferences = prefs, isAdmin = prefs.userRole == "admin") }
             }
         }
         loadProviders()
@@ -170,36 +166,6 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun dismissProviderError() = _uiState.update { it.copy(providerError = null) }
-
-    // ── Service section unlock ────────────────────────────────────────────────
-
-    fun onTripleTap() {
-        if (_uiState.value.serviceSectionUnlocked) return
-        _uiState.update { it.copy(showPasswordField = true, passwordError = null, passwordInput = "") }
-    }
-
-    fun onPasswordChange(pwd: String) {
-        _uiState.update { it.copy(passwordInput = pwd, passwordError = null) }
-    }
-
-    fun unlockServiceSection() {
-        val pwd = _uiState.value.passwordInput
-        if (pwd.isBlank()) return
-        _uiState.update { it.copy(isVerifyingPassword = true, passwordError = null) }
-        viewModelScope.launch {
-            val ok = authRepository.verifyAdminPassword(pwd)
-            _uiState.update {
-                if (ok) it.copy(isVerifyingPassword = false, serviceSectionUnlocked = true,
-                                showPasswordField = false, passwordInput = "", passwordError = null)
-                else it.copy(isVerifyingPassword = false,
-                             passwordError = "Password errata o account non admin")
-            }
-        }
-    }
-
-    fun dismissPasswordField() {
-        _uiState.update { it.copy(showPasswordField = false, passwordInput = "", passwordError = null) }
-    }
 
     // ── Jenny conversation management ─────────────────────────────────────────
 

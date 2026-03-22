@@ -37,7 +37,6 @@ import androidx.compose.ui.layout.ContentScale
 import com.alfredJenny.app.ui.components.JennyOutfit
 import com.alfredJenny.app.ui.components.rememberAssetBitmap
 import com.alfredJenny.app.ui.theme.*
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import android.app.Activity
@@ -73,17 +72,6 @@ fun SettingsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var selectedSection by remember { mutableStateOf<SettingsSection?>(null) }
 
-    val scope = rememberCoroutineScope()
-    var tapCount by remember { mutableIntStateOf(0) }
-    var resetJob by remember { mutableStateOf<Job?>(null) }
-
-    fun onSettingsIconTap() {
-        tapCount++
-        resetJob?.cancel()
-        resetJob = scope.launch { delay(1500); tapCount = 0 }
-        if (tapCount >= 3) { tapCount = 0; resetJob?.cancel(); viewModel.onTripleTap() }
-    }
-
     if (selectedSection == null) {
         Column(modifier = Modifier.fillMaxSize().background(Background)) {
             Row(
@@ -97,54 +85,7 @@ fun SettingsScreen(
                 Text("Impostazioni", style = MaterialTheme.typography.titleLarge, color = OnBackground,
                     modifier = Modifier.weight(1f))
                 if (state.isSaved) Icon(Icons.Default.Check, contentDescription = "Salvato", tint = SuccessGreen)
-                IconButton(onClick = { onSettingsIconTap() }) {
-                    Icon(Icons.Default.Settings, contentDescription = null, tint = OnSurfaceVariant)
-                }
-            }
-
-            AnimatedVisibility(visible = state.showPasswordField, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().background(SurfaceVariant)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    var showPwd by remember { mutableStateOf(false) }
-                    Text("Accesso area tecnica", style = MaterialTheme.typography.labelSmall, color = OnSurfaceVariant)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = state.passwordInput,
-                            onValueChange = viewModel::onPasswordChange,
-                            placeholder = { Text("Password", color = OnSurfaceVariant, fontSize = 13.sp) },
-                            visualTransformation = if (showPwd) VisualTransformation.None else PasswordVisualTransformation(),
-                            trailingIcon = {
-                                IconButton(onClick = { showPwd = !showPwd }) {
-                                    Icon(if (showPwd) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                        contentDescription = null, tint = OnSurfaceVariant)
-                                }
-                            },
-                            isError = state.passwordError != null,
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                            colors = outlinedColors()
-                        )
-                        if (state.isVerifyingPassword) {
-                            CircularProgressIndicator(modifier = Modifier.size(32.dp), color = AlfredBlueLight, strokeWidth = 2.dp)
-                        } else {
-                            IconButton(
-                                onClick = viewModel::unlockServiceSection,
-                                modifier = Modifier.size(48.dp).background(AlfredBlue, RoundedCornerShape(8.dp))
-                            ) {
-                                Icon(Icons.Default.LockOpen, contentDescription = "Sblocca", tint = OnBackground)
-                            }
-                        }
-                        IconButton(onClick = viewModel::dismissPasswordField) {
-                            Icon(Icons.Default.Close, contentDescription = "Chiudi", tint = OnSurfaceVariant)
-                        }
-                    }
-                    if (state.passwordError != null) {
-                        Text(state.passwordError!!, color = ErrorRed, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
+                Icon(Icons.Default.Settings, contentDescription = null, tint = OnSurfaceVariant, modifier = Modifier.size(24.dp).padding(4.dp))
             }
 
             Column(
@@ -153,8 +94,8 @@ fun SettingsScreen(
             ) {
                 val visibleSections = SettingsSection.entries.filter {
                     when (it) {
-                        SettingsSection.SERVIZIO   -> state.serviceSectionUnlocked
-                        SettingsSection.SMART_HOME -> state.serviceSectionUnlocked
+                        SettingsSection.SERVIZIO   -> state.isAdmin
+                        SettingsSection.SMART_HOME -> state.isAdmin
                         else -> true
                     }
                 }
@@ -479,32 +420,36 @@ private fun GeneraleSection(state: SettingsUiState, viewModel: SettingsViewModel
     )
     Text("Default: $DEFAULT_BASE_URL", style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
     HorizontalDivider(color = SurfaceVariant)
-    SectionLabel("Avatar Alfred")
-    Text("Sostituisci i frame dell'avatar animato con grafica personalizzata.",
-        style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
-    OutlinedButton(
-        onClick = onOpenAvatarImport,
-        modifier = Modifier.fillMaxWidth().height(52.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, AlfredBlueLight)
-    ) {
-        Icon(Icons.Default.Face, contentDescription = null, tint = AlfredBlueLight, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text("Sostituisci avatar", fontWeight = FontWeight.SemiBold, color = AlfredBlueLight)
+    if (!state.isAdmin) {
+        SectionLabel("Avatar Alfred")
+        Text("Sostituisci i frame dell'avatar animato con grafica personalizzata.",
+            style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+        OutlinedButton(
+            onClick = onOpenAvatarImport,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, AlfredBlueLight)
+        ) {
+            Icon(Icons.Default.Face, contentDescription = null, tint = AlfredBlueLight, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Sostituisci avatar", fontWeight = FontWeight.SemiBold, color = AlfredBlueLight)
+        }
+        HorizontalDivider(color = SurfaceVariant)
     }
-    HorizontalDivider(color = SurfaceVariant)
-    SectionLabel("Avatar Jenny")
-    Text("Sostituisci i PNG di body, occhi e bocca con immagini personalizzate.",
-        style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
-    OutlinedButton(
-        onClick = onOpenJennyAvatar,
-        modifier = Modifier.fillMaxWidth().height(52.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, JennyPurpleLight)
-    ) {
-        Icon(Icons.Default.Face, contentDescription = null, tint = JennyPurpleLight, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text("Gestisci avatar Jenny", fontWeight = FontWeight.SemiBold, color = JennyPurpleLight)
+    if (state.isAdmin) {
+        SectionLabel("Avatar Jenny")
+        Text("Sostituisci i PNG di body, occhi e bocca con immagini personalizzate.",
+            style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+        OutlinedButton(
+            onClick = onOpenJennyAvatar,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, JennyPurpleLight)
+        ) {
+            Icon(Icons.Default.Face, contentDescription = null, tint = JennyPurpleLight, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Gestisci avatar Jenny", fontWeight = FontWeight.SemiBold, color = JennyPurpleLight)
+        }
+        HorizontalDivider(color = SurfaceVariant)
     }
-    HorizontalDivider(color = SurfaceVariant)
     SectionLabel("AI Dedicata Alfred")
     Text("Configura un provider AI separato usato solo da Alfred.",
         style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
@@ -1029,21 +974,6 @@ private fun AccountRow(label: String, value: String) {
 @Composable
 private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel, onOpenJennyAvatar: () -> Unit, onOpenJennyAI: () -> Unit = {}, onOpenJennyVoice: () -> Unit = {}) {
     SectionLabel("Companion Jenny")
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column {
-            Text("Abilita companion Jenny", color = OnBackground, fontWeight = FontWeight.Medium)
-            Text("Aggiunge Jenny al menu di navigazione", style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
-        }
-        Switch(
-            checked = state.preferences.jennyEnabled,
-            onCheckedChange = viewModel::onJennyEnabledChange,
-            colors = SwitchDefaults.colors(checkedTrackColor = JennyPurple, checkedThumbColor = JennyPurpleLight)
-        )
-    }
     HorizontalDivider(color = SurfaceVariant)
     SectionLabel("Voce Jenny")
     if (state.preferences.jennyVoiceId.isNotBlank()) {
@@ -1058,7 +988,6 @@ private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel
     OutlinedButton(
         onClick = onOpenJennyVoice,
         modifier = Modifier.fillMaxWidth().height(52.dp),
-        enabled = state.preferences.jennyEnabled,
         border = androidx.compose.foundation.BorderStroke(1.dp, JennyPurpleLight)
     ) {
         Icon(Icons.Default.RecordVoiceOver, null, tint = JennyPurpleLight, modifier = Modifier.size(18.dp))
@@ -1081,8 +1010,7 @@ private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel
             valueRange = 1f..5f, steps = 3,
             modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
             colors = SliderDefaults.colors(thumbColor = JennyPurpleLight, activeTrackColor = JennyPurple,
-                inactiveTrackColor = SurfaceVariant),
-            enabled = state.preferences.jennyEnabled
+                inactiveTrackColor = SurfaceVariant)
         )
         Text("5", color = OnSurfaceVariant, fontSize = 12.sp)
     }

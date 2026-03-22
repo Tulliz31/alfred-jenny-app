@@ -226,15 +226,6 @@ fun HomeScreen(
             }
         )
 
-        // ── Companion tabs (admin only) ───────────────────────────────────────
-        if (state.companions.size > 1) {
-            CompanionSelectorRow(
-                companions = state.companions,
-                selectedId = state.selectedCompanionId,
-                onSelect = viewModel::onCompanionSelected
-            )
-        }
-
         // ── Messages ──────────────────────────────────────────────────────────
         PullToRefreshBox(
             isRefreshing = state.isRefreshing,

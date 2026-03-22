@@ -127,9 +127,10 @@ def build_jenny_system_prompt(level: int) -> str:
 
 
 def get_companions_for_role(role: Role) -> list[Companion]:
-    role_rank = {Role.user: 0, Role.admin: 1}
-    user_rank = role_rank[role]
-    return [c for c in COMPANIONS.values() if role_rank[c.min_role] <= user_rank]
+    """Role-based companion assignment: user → Alfred, admin → Jenny."""
+    if role == Role.admin:
+        return [COMPANIONS["jenny"]]
+    return [COMPANIONS["alfred"]]
 
 
 def get_companion(companion_id: str) -> Companion | None:
