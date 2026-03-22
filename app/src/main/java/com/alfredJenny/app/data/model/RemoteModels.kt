@@ -252,6 +252,43 @@ data class TuyaConfigDto(
     @Json(name = "base_url") val baseUrl: String = "https://openapi.tuyaeu.com",
 )
 
+// ── Admin: user management ────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class UserWithIdDto(
+    @Json(name = "id") val id: Int,
+    @Json(name = "username") val username: String,
+    @Json(name = "role") val role: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class CreateUserRequestDto(
+    @Json(name = "username") val username: String,
+    @Json(name = "password") val password: String,
+    @Json(name = "role") val role: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class UpdateUserRequestDto(
+    @Json(name = "role") val role: String? = null,
+    @Json(name = "password") val password: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class ChangePasswordRequestDto(
+    @Json(name = "current_password") val currentPassword: String,
+    @Json(name = "new_password") val newPassword: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class ActivityLogEntryDto(
+    @Json(name = "id") val id: Int,
+    @Json(name = "timestamp") val timestamp: String,
+    @Json(name = "username") val username: String,
+    @Json(name = "action") val action: String,
+    @Json(name = "details") val details: String = "",
+)
+
 // ── Companion AI config ───────────────────────────────────────────────────────
 
 @JsonClass(generateAdapter = true)

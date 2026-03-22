@@ -3,8 +3,10 @@ package com.alfredJenny.app.ui.screens.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.alfredJenny.app.data.model.AIProvider
+import com.alfredJenny.app.data.model.ActivityLogEntry
 import com.alfredJenny.app.data.model.ProviderInfo
 import com.alfredJenny.app.data.model.SmartHomeDevice
+import com.alfredJenny.app.data.model.UserEntry
 import com.alfredJenny.app.data.model.UserPreferences
 import com.alfredJenny.app.ui.components.JennyOutfit
 import com.alfredJenny.app.data.remote.DEFAULT_BASE_URL
@@ -41,8 +43,33 @@ data class SettingsUiState(
     val discoveryError: String? = null,
     // Tuya connection test
     val isTuyaTesting: Boolean = false,
-    val tuyaTestResult: String? = null,  // "Connessione riuscita! N dispositivi trovati"
+    val tuyaTestResult: String? = null,
     val tuyaTestError: String? = null,
+    // Change password
+    val showChangePasswordDialog: Boolean = false,
+    val currentPassword: String = "",
+    val newPassword: String = "",
+    val confirmPassword: String = "",
+    val changePasswordError: String? = null,
+    val changePasswordSuccess: Boolean = false,
+    val isChangingPassword: Boolean = false,
+    // Admin: user management
+    val users: List<UserEntry> = emptyList(),
+    val isLoadingUsers: Boolean = false,
+    val usersError: String? = null,
+    val showCreateUserDialog: Boolean = false,
+    val showEditUserDialog: Boolean = false,
+    val editingUser: UserEntry? = null,
+    val newUserName: String = "",
+    val newUserPassword: String = "",
+    val newUserRole: String = "user",
+    val userActionError: String? = null,
+    val userActionSuccess: String? = null,
+    // Admin: activity log
+    val activityLog: List<ActivityLogEntry> = emptyList(),
+    val isLoadingLog: Boolean = false,
+    val logError: String? = null,
+    val showActivityLog: Boolean = false,
 )
 
 @HiltViewModel
@@ -234,6 +261,151 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // ── Theme ─────────────────────────────────────────────────────────────────
+
+    fun toggleLightTheme(enabled: Boolean) {
+        update { copy(lightTheme = enabled) }
+        viewModelScope.launch { preferencesRepository.saveLightTheme(enabled) }
+    }
+
+    // ── Change password ───────────────────────────────────────────────────────
+
+    fun showChangePassword() = _uiState.update {
+        it.copy(showChangePasswordDialog = true, currentPassword = "", newPassword = "",
+            confirmPassword = "", changePasswordError = null, changePasswordSuccess = false)
+    }
+
+    fun dismissChangePassword() = _uiState.update {
+        it.copy(showChangePasswordDialog = false, changePasswordError = null)
+    }
+
+    fun onCurrentPasswordChange(v: String) = _uiState.update { it.copy(currentPassword = v, changePasswordError = null) }
+    fun onNewPasswordChange(v: String)     = _uiState.update { it.copy(newPassword = v, changePasswordError = null) }
+    fun onConfirmPasswordChange(v: String) = _uiState.update { it.copy(confirmPassword = v, changePasswordError = null) }
+
+    fun submitChangePassword() {
+        val s = _uiState.value
+        if (s.newPassword != s.confirmPassword) {
+            _uiState.update { it.copy(changePasswordError = "Le password non coincidono") }
+            return
+        }
+        if (s.newPassword.length < 4) {
+            _uiState.update { it.copy(changePasswordError = "Password troppo corta (min 4 caratteri)") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isChangingPassword = true, changePasswordError = null) }
+            authRepository.changeMyPassword(s.currentPassword, s.newPassword)
+                .onSuccess {
+                    _uiState.update { it.copy(isChangingPassword = false, changePasswordSuccess = true,
+                        showChangePasswordDialog = false) }
+                }
+                .onFailure { err ->
+                    _uiState.update { it.copy(isChangingPassword = false,
+                        changePasswordError = err.message ?: "Errore cambio password") }
+                }
+        }
+    }
+
+    fun dismissChangePasswordSuccess() = _uiState.update { it.copy(changePasswordSuccess = false) }
+
+    // ── Admin: user management ────────────────────────────────────────────────
+
+    fun loadUsers() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingUsers = true, usersError = null) }
+            authRepository.listUsers()
+                .onSuccess { list -> _uiState.update { it.copy(users = list, isLoadingUsers = false) } }
+                .onFailure { err -> _uiState.update { it.copy(isLoadingUsers = false, usersError = err.message) } }
+        }
+    }
+
+    fun showCreateUser() = _uiState.update {
+        it.copy(showCreateUserDialog = true, newUserName = "", newUserPassword = "",
+            newUserRole = "user", userActionError = null)
+    }
+
+    fun dismissCreateUser() = _uiState.update { it.copy(showCreateUserDialog = false, userActionError = null) }
+
+    fun onNewUserNameChange(v: String)     = _uiState.update { it.copy(newUserName = v, userActionError = null) }
+    fun onNewUserPasswordChange(v: String) = _uiState.update { it.copy(newUserPassword = v, userActionError = null) }
+    fun onNewUserRoleChange(v: String)     = _uiState.update { it.copy(newUserRole = v) }
+
+    fun submitCreateUser() {
+        val s = _uiState.value
+        if (s.newUserName.isBlank() || s.newUserPassword.isBlank()) {
+            _uiState.update { it.copy(userActionError = "Username e password obbligatori") }
+            return
+        }
+        viewModelScope.launch {
+            authRepository.createUser(s.newUserName, s.newUserPassword, s.newUserRole)
+                .onSuccess { _ ->
+                    _uiState.update { it.copy(showCreateUserDialog = false, userActionSuccess = "Utente creato") }
+                    loadUsers()
+                }
+                .onFailure { err ->
+                    _uiState.update { it.copy(userActionError = err.message ?: "Errore creazione utente") }
+                }
+        }
+    }
+
+    fun showEditUser(user: UserEntry) = _uiState.update {
+        it.copy(showEditUserDialog = true, editingUser = user,
+            newUserPassword = "", newUserRole = user.role, userActionError = null)
+    }
+
+    fun dismissEditUser() = _uiState.update { it.copy(showEditUserDialog = false, editingUser = null, userActionError = null) }
+
+    fun submitEditUser() {
+        val s = _uiState.value
+        val user = s.editingUser ?: return
+        viewModelScope.launch {
+            authRepository.updateUser(
+                username = user.username,
+                newPassword = s.newUserPassword.ifBlank { null },
+                newRole = s.newUserRole.ifBlank { null }
+            ).onSuccess { _ ->
+                _uiState.update { it.copy(showEditUserDialog = false, editingUser = null,
+                    userActionSuccess = "Utente aggiornato") }
+                loadUsers()
+            }.onFailure { err ->
+                _uiState.update { it.copy(userActionError = err.message ?: "Errore aggiornamento utente") }
+            }
+        }
+    }
+
+    fun deleteUser(username: String) {
+        viewModelScope.launch {
+            authRepository.deleteUser(username)
+                .onSuccess {
+                    _uiState.update { it.copy(userActionSuccess = "Utente eliminato") }
+                    loadUsers()
+                }
+                .onFailure { err ->
+                    _uiState.update { it.copy(userActionError = err.message ?: "Errore eliminazione") }
+                }
+        }
+    }
+
+    fun dismissUserActionFeedback() = _uiState.update { it.copy(userActionError = null, userActionSuccess = null) }
+
+    // ── Admin: activity log ───────────────────────────────────────────────────
+
+    fun toggleActivityLog() {
+        val showing = !_uiState.value.showActivityLog
+        _uiState.update { it.copy(showActivityLog = showing) }
+        if (showing) loadActivityLog()
+    }
+
+    fun loadActivityLog() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingLog = true, logError = null) }
+            authRepository.getActivityLog()
+                .onSuccess { log -> _uiState.update { it.copy(activityLog = log, isLoadingLog = false) } }
+                .onFailure { err -> _uiState.update { it.copy(isLoadingLog = false, logError = err.message) } }
+        }
+    }
+
     // ── Save ──────────────────────────────────────────────────────────────────
 
     private fun update(block: UserPreferences.() -> UserPreferences) {
@@ -268,6 +440,7 @@ class SettingsViewModel @Inject constructor(
             preferencesRepository.saveTuyaUserId(p.tuyaUserId)
             preferencesRepository.saveTuyaRegion(p.tuyaRegion)
             preferencesRepository.saveJennyAutoOutfit(p.jennyAutoOutfit)
+            preferencesRepository.saveLightTheme(p.lightTheme)
             _uiState.update { it.copy(isSaved = true) }
         }
     }

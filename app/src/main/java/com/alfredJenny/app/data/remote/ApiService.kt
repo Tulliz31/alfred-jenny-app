@@ -83,6 +83,33 @@ interface ApiService {
     @PUT("devices/admin/tuya-config")
     suspend fun updateTuyaConfig(@Body config: TuyaConfigDto): Response<Map<String, @JvmSuppressWildcards Any>>
 
+    // ── Auth: change own password ─────────────────────────────────────────────
+
+    @PUT("auth/me/password")
+    suspend fun changeMyPassword(@Body request: ChangePasswordRequestDto): Response<Unit>
+
+    // ── Admin: user management ────────────────────────────────────────────────
+
+    @GET("auth/admin/users")
+    suspend fun listAdminUsers(): Response<List<UserWithIdDto>>
+
+    @POST("auth/admin/users")
+    suspend fun createAdminUser(@Body request: CreateUserRequestDto): Response<UserWithIdDto>
+
+    @PUT("auth/admin/users/{username}")
+    suspend fun updateAdminUser(
+        @Path("username") username: String,
+        @Body request: UpdateUserRequestDto,
+    ): Response<UserWithIdDto>
+
+    @DELETE("auth/admin/users/{username}")
+    suspend fun deleteAdminUser(@Path("username") username: String): Response<Unit>
+
+    // ── Admin: activity log ───────────────────────────────────────────────────
+
+    @GET("auth/admin/activity-log")
+    suspend fun getActivityLog(): Response<List<ActivityLogEntryDto>>
+
     // ── Jenny AI config ───────────────────────────────────────────────────────
 
     @POST("jenny/openrouter/models")

@@ -2,6 +2,7 @@ package com.alfredJenny.app.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
 private val DarkColorScheme = darkColorScheme(
@@ -22,10 +23,28 @@ private val DarkColorScheme = darkColorScheme(
     error = ErrorRed,
 )
 
+private val LightColorScheme = lightColorScheme(
+    primary = AlfredBlueLight,
+    onPrimary = LightBackground,
+    primaryContainer = AlfredBlue,
+    onPrimaryContainer = LightBackground,
+    secondary = JennyPurpleLight,
+    onSecondary = LightBackground,
+    secondaryContainer = JennyPurple,
+    onSecondaryContainer = LightBackground,
+    background = LightBackground,
+    onBackground = LightOnBackground,
+    surface = LightSurface,
+    onSurface = LightOnSurface,
+    surfaceVariant = LightSurfaceVariant,
+    onSurfaceVariant = LightOnSurfaceVariant,
+    error = ErrorRed,
+)
+
 @Composable
-fun AlfredJennyTheme(content: @Composable () -> Unit) {
+fun AlfredJennyTheme(useLightTheme: Boolean = false, content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = DarkColorScheme,
+        colorScheme = if (useLightTheme) LightColorScheme else DarkColorScheme,
         typography = AppTypography,
         shapes = AppShapes,
         content = content

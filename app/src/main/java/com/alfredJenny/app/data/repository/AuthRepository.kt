@@ -1,7 +1,12 @@
 package com.alfredJenny.app.data.repository
 
+import com.alfredJenny.app.data.model.ActivityLogEntry
+import com.alfredJenny.app.data.model.CreateUserRequestDto
+import com.alfredJenny.app.data.model.ChangePasswordRequestDto
 import com.alfredJenny.app.data.model.LoginRequestDto
 import com.alfredJenny.app.data.model.LoginResponseDto
+import com.alfredJenny.app.data.model.UpdateUserRequestDto
+import com.alfredJenny.app.data.model.UserEntry
 import com.alfredJenny.app.data.remote.DEFAULT_BASE_URL
 import com.alfredJenny.app.data.remote.ApiService
 import com.alfredJenny.app.data.remote.TokenStore
@@ -74,6 +79,42 @@ class AuthRepository @Inject constructor(
         tokenStore.role  = ""
         preferencesRepository.saveJwtToken("")
         preferencesRepository.saveUserRole("")
+    }
+
+    suspend fun changeMyPassword(currentPassword: String, newPassword: String): Result<Unit> = runCatching {
+        val response = apiService.changeMyPassword(ChangePasswordRequestDto(currentPassword, newPassword))
+        if (!response.isSuccessful) error(parseApiError(response.errorBody()?.string(), response.code()))
+    }
+
+    suspend fun listUsers(): Result<List<UserEntry>> = runCatching {
+        val response = apiService.listAdminUsers()
+        if (response.isSuccessful) response.body()!!.map { UserEntry(it.id, it.username, it.role) }
+        else error(parseApiError(response.errorBody()?.string(), response.code()))
+    }
+
+    suspend fun createUser(username: String, password: String, role: String): Result<UserEntry> = runCatching {
+        val response = apiService.createAdminUser(CreateUserRequestDto(username, password, role))
+        if (response.isSuccessful) response.body()!!.let { UserEntry(it.id, it.username, it.role) }
+        else error(parseApiError(response.errorBody()?.string(), response.code()))
+    }
+
+    suspend fun updateUser(username: String, newPassword: String?, newRole: String?): Result<UserEntry> = runCatching {
+        val response = apiService.updateAdminUser(username, UpdateUserRequestDto(newRole, newPassword))
+        if (response.isSuccessful) response.body()!!.let { UserEntry(it.id, it.username, it.role) }
+        else error(parseApiError(response.errorBody()?.string(), response.code()))
+    }
+
+    suspend fun deleteUser(username: String): Result<Unit> = runCatching {
+        val response = apiService.deleteAdminUser(username)
+        if (!response.isSuccessful) error(parseApiError(response.errorBody()?.string(), response.code()))
+    }
+
+    suspend fun getActivityLog(): Result<List<ActivityLogEntry>> = runCatching {
+        val response = apiService.getActivityLog()
+        if (response.isSuccessful) response.body()!!.map {
+            ActivityLogEntry(it.id, it.timestamp, it.username, it.action, it.details)
+        }
+        else error(parseApiError(response.errorBody()?.string(), response.code()))
     }
 
     private fun parseApiError(body: String?, code: Int): String {

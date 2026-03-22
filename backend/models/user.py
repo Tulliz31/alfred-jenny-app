@@ -18,6 +18,12 @@ class UserPublic(BaseModel):
     role: Role
 
 
+class UserWithId(BaseModel):
+    id: int
+    username: str
+    role: Role
+
+
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -28,3 +34,27 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     role: Role
     username: str
+
+
+class CreateUserRequest(BaseModel):
+    username: str
+    password: str
+    role: Role = Role.user
+
+
+class UpdateUserRequest(BaseModel):
+    role: Role | None = None
+    password: str | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class ActivityLogEntry(BaseModel):
+    id: int
+    timestamp: str
+    username: str
+    action: str
+    details: str = ""

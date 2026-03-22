@@ -28,3 +28,11 @@ val BubbleAssistant = Color(0xFF1E1E2E)
 val AccentGlow = Color(0xFF4A8ACA)
 val ErrorRed = Color(0xFFCF4B4B)
 val SuccessGreen = Color(0xFF4BCF7E)
+
+// Light theme neutrals
+val LightBackground = Color(0xFFF4F4F8)
+val LightSurface = Color(0xFFFFFFFF)
+val LightSurfaceVariant = Color(0xFFE8E8F0)
+val LightOnBackground = Color(0xFF1A1A2E)
+val LightOnSurface = Color(0xFF2A2A3E)
+val LightOnSurfaceVariant = Color(0xFF55556A)

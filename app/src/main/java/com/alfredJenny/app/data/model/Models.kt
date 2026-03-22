@@ -50,7 +50,15 @@ data class UserPreferences(
     // Jenny outfit (CASUAL / SERATA / BIKINI)
     val jennyOutfit: String = "CASUAL",
     val jennyAutoOutfit: Boolean = true,
+    // Theme
+    val lightTheme: Boolean = false,
 )
+
+/** A user account as returned by the admin endpoint. */
+data class UserEntry(val id: Int, val username: String, val role: String)
+
+/** An activity log entry from the backend. */
+data class ActivityLogEntry(val id: Int, val timestamp: String, val username: String, val action: String, val details: String)
 
 /** Companion AI provider config (stored on backend, retrieved via GET /providers/{companionId}). */
 data class CompanionAIConfig(

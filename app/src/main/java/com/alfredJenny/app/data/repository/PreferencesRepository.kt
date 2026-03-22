@@ -61,6 +61,8 @@ class PreferencesRepository @Inject constructor(
         val KEY_JENNY_AI_KEY           = stringPreferencesKey("jenny_ai_key")
         val KEY_JENNY_AI_MODEL_ID      = stringPreferencesKey("jenny_ai_model_id")
         val KEY_JENNY_AI_BASE_URL      = stringPreferencesKey("jenny_ai_base_url")
+        // Theme
+        val KEY_LIGHT_THEME           = booleanPreferencesKey("light_theme")
         // Custom outfit names (6 slots)
         val KEY_CUSTOM_OUTFIT_0_NAME  = stringPreferencesKey("custom_outfit_0_name")
         val KEY_CUSTOM_OUTFIT_1_NAME  = stringPreferencesKey("custom_outfit_1_name")
@@ -103,6 +105,7 @@ class PreferencesRepository @Inject constructor(
             onboardingCompleted     = prefs[KEY_ONBOARDING_COMPLETED] ?: false,
             jennyOutfit             = prefs[KEY_JENNY_OUTFIT]      ?: "CASUAL",
             jennyAutoOutfit         = prefs[KEY_JENNY_AUTO_OUTFIT] ?: true,
+            lightTheme              = prefs[KEY_LIGHT_THEME]       ?: false,
         )
     }
 
@@ -156,6 +159,8 @@ class PreferencesRepository @Inject constructor(
     // Jenny outfit
     suspend fun saveJennyOutfit(outfit: String)         { dataStore.edit { it[KEY_JENNY_OUTFIT]          = outfit } }
     suspend fun saveJennyAutoOutfit(enabled: Boolean)   { dataStore.edit { it[KEY_JENNY_AUTO_OUTFIT]     = enabled } }
+    // Theme
+    suspend fun saveLightTheme(enabled: Boolean)        { dataStore.edit { it[KEY_LIGHT_THEME]           = enabled } }
     // Custom outfit names
     suspend fun getCustomOutfitNames(): List<String> = dataStore.data.map { prefs ->
         listOf(

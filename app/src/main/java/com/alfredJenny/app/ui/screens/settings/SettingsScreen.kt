@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -194,7 +195,7 @@ fun SettingsScreen(
                     SettingsSection.VOCE        -> VoceSection(state, viewModel)
                     SettingsSection.MEMORIA     -> MemoriaSection(state, viewModel)
                     SettingsSection.AVANZATE    -> AvanzateSection(state, viewModel)
-                    SettingsSection.ACCOUNT     -> AccountSection(state, onLogout)
+                    SettingsSection.ACCOUNT     -> AccountSection(state, viewModel, onLogout)
                     SettingsSection.SMART_HOME  -> SmartHomeAdminSection(state, viewModel)
                     SettingsSection.SERVIZIO    -> ServizioSection(state, viewModel, onOpenJennyAvatar, onOpenJennyAI)
                     null -> {}
@@ -240,6 +241,173 @@ fun SettingsScreen(
                 Text(state.providerError!!, modifier = Modifier.padding(12.dp), color = OnBackground)
             }
         }
+    }
+
+    // ── Change password dialog ─────────────────────────────────────────────────
+    if (state.showChangePasswordDialog) {
+        var showCurrent by remember { mutableStateOf(false) }
+        var showNew by remember { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = viewModel::dismissChangePassword,
+            containerColor = Surface,
+            title = { Text("Cambia password", color = OnBackground) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = state.currentPassword,
+                        onValueChange = viewModel::onCurrentPasswordChange,
+                        label = { Text("Password attuale") },
+                        visualTransformation = if (showCurrent) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showCurrent = !showCurrent }) {
+                                Icon(if (showCurrent) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    null, tint = OnSurfaceVariant)
+                            }
+                        },
+                        singleLine = true, modifier = Modifier.fillMaxWidth(), colors = outlinedColors()
+                    )
+                    OutlinedTextField(
+                        value = state.newPassword,
+                        onValueChange = viewModel::onNewPasswordChange,
+                        label = { Text("Nuova password") },
+                        visualTransformation = if (showNew) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showNew = !showNew }) {
+                                Icon(if (showNew) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    null, tint = OnSurfaceVariant)
+                            }
+                        },
+                        singleLine = true, modifier = Modifier.fillMaxWidth(), colors = outlinedColors()
+                    )
+                    OutlinedTextField(
+                        value = state.confirmPassword,
+                        onValueChange = viewModel::onConfirmPasswordChange,
+                        label = { Text("Conferma password") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true, modifier = Modifier.fillMaxWidth(), colors = outlinedColors()
+                    )
+                    if (state.changePasswordError != null) {
+                        Text(state.changePasswordError!!, color = ErrorRed,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            },
+            confirmButton = {
+                if (state.isChangingPassword) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp),
+                        color = AlfredBlueLight, strokeWidth = 2.dp)
+                } else {
+                    TextButton(onClick = viewModel::submitChangePassword) {
+                        Text("Aggiorna", color = AlfredBlueLight, fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissChangePassword) {
+                    Text("Annulla", color = OnSurfaceVariant)
+                }
+            }
+        )
+    }
+
+    // ── Create user dialog ────────────────────────────────────────────────────
+    if (state.showCreateUserDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissCreateUser,
+            containerColor = Surface,
+            title = { Text("Nuovo utente", color = OnBackground) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = state.newUserName,
+                        onValueChange = viewModel::onNewUserNameChange,
+                        label = { Text("Username") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth(), colors = outlinedColors()
+                    )
+                    OutlinedTextField(
+                        value = state.newUserPassword,
+                        onValueChange = viewModel::onNewUserPasswordChange,
+                        label = { Text("Password") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true, modifier = Modifier.fillMaxWidth(), colors = outlinedColors()
+                    )
+                    var showRoleMenu by remember { mutableStateOf(false) }
+                    Box {
+                        OutlinedButton(onClick = { showRoleMenu = true }, modifier = Modifier.fillMaxWidth(),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, OnSurfaceVariant)) {
+                            Text("Ruolo: ${state.newUserRole}", color = OnBackground, modifier = Modifier.weight(1f))
+                            Icon(Icons.Default.ArrowDropDown, null, tint = OnSurfaceVariant)
+                        }
+                        DropdownMenu(expanded = showRoleMenu, onDismissRequest = { showRoleMenu = false }) {
+                            DropdownMenuItem(text = { Text("user", color = OnBackground) },
+                                onClick = { viewModel.onNewUserRoleChange("user"); showRoleMenu = false })
+                            DropdownMenuItem(text = { Text("admin", color = OnBackground) },
+                                onClick = { viewModel.onNewUserRoleChange("admin"); showRoleMenu = false })
+                        }
+                    }
+                    if (state.userActionError != null) {
+                        Text(state.userActionError!!, color = ErrorRed, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::submitCreateUser) {
+                    Text("Crea", color = AlfredBlueLight, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissCreateUser) {
+                    Text("Annulla", color = OnSurfaceVariant)
+                }
+            }
+        )
+    }
+
+    // ── Edit user dialog ──────────────────────────────────────────────────────
+    if (state.showEditUserDialog && state.editingUser != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissEditUser,
+            containerColor = Surface,
+            title = { Text("Modifica utente: ${state.editingUser!!.username}", color = OnBackground) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = state.newUserPassword,
+                        onValueChange = viewModel::onNewUserPasswordChange,
+                        label = { Text("Nuova password (lascia vuoto per non cambiare)") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true, modifier = Modifier.fillMaxWidth(), colors = outlinedColors()
+                    )
+                    var showRoleMenu by remember { mutableStateOf(false) }
+                    Box {
+                        OutlinedButton(onClick = { showRoleMenu = true }, modifier = Modifier.fillMaxWidth(),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, OnSurfaceVariant)) {
+                            Text("Ruolo: ${state.newUserRole}", color = OnBackground, modifier = Modifier.weight(1f))
+                            Icon(Icons.Default.ArrowDropDown, null, tint = OnSurfaceVariant)
+                        }
+                        DropdownMenu(expanded = showRoleMenu, onDismissRequest = { showRoleMenu = false }) {
+                            DropdownMenuItem(text = { Text("user", color = OnBackground) },
+                                onClick = { viewModel.onNewUserRoleChange("user"); showRoleMenu = false })
+                            DropdownMenuItem(text = { Text("admin", color = OnBackground) },
+                                onClick = { viewModel.onNewUserRoleChange("admin"); showRoleMenu = false })
+                        }
+                    }
+                    if (state.userActionError != null) {
+                        Text(state.userActionError!!, color = ErrorRed, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::submitEditUser) {
+                    Text("Salva", color = AlfredBlueLight, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissEditUser) {
+                    Text("Annulla", color = OnSurfaceVariant)
+                }
+            }
+        )
     }
 }
 
@@ -326,6 +494,19 @@ private fun GeneraleSection(state: SettingsUiState, viewModel: SettingsViewModel
         Icon(Icons.Default.SmartToy, contentDescription = null, tint = AlfredBlueLight, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text("Configura AI Alfred", fontWeight = FontWeight.SemiBold, color = AlfredBlueLight)
+    }
+    HorizontalDivider(color = SurfaceVariant)
+    SectionLabel("Tema")
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Tema chiaro", color = OnBackground, fontWeight = FontWeight.Medium)
+            Text("Passa al tema chiaro dell'interfaccia", style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+        }
+        Switch(
+            checked = state.preferences.lightTheme,
+            onCheckedChange = viewModel::toggleLightTheme,
+            colors = SwitchDefaults.colors(checkedTrackColor = AlfredBlue, checkedThumbColor = AlfredBlueLight)
+        )
     }
     SaveButton(viewModel)
 }
@@ -651,12 +832,29 @@ private fun AvanzateSection(state: SettingsUiState, viewModel: SettingsViewModel
 // ── Account ───────────────────────────────────────────────────────────────────
 
 @Composable
-private fun AccountSection(state: SettingsUiState, onLogout: () -> Unit) {
+private fun AccountSection(state: SettingsUiState, viewModel: SettingsViewModel, onLogout: () -> Unit) {
     SectionLabel("Informazioni account")
     Surface(shape = RoundedCornerShape(12.dp), color = SurfaceVariant, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AccountRow("Utente", state.preferences.username.ifBlank { "—" })
             AccountRow("Ruolo", state.preferences.userRole.ifBlank { "—" })
+        }
+    }
+    HorizontalDivider(color = SurfaceVariant)
+    SectionLabel("Sicurezza")
+    OutlinedButton(
+        onClick = viewModel::showChangePassword,
+        modifier = Modifier.fillMaxWidth().height(52.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, AlfredBlueLight)
+    ) {
+        Icon(Icons.Default.Lock, contentDescription = null, tint = AlfredBlueLight, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Cambia password", fontWeight = FontWeight.SemiBold, color = AlfredBlueLight)
+    }
+    if (state.changePasswordSuccess) {
+        LaunchedEffect(Unit) { delay(2000); viewModel.dismissChangePasswordSuccess() }
+        Surface(shape = RoundedCornerShape(8.dp), color = SuccessGreen.copy(0.15f), modifier = Modifier.fillMaxWidth()) {
+            Text("Password aggiornata!", modifier = Modifier.padding(12.dp), color = SuccessGreen)
         }
     }
     HorizontalDivider(color = SurfaceVariant)
@@ -866,6 +1064,8 @@ private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel
         Spacer(Modifier.width(8.dp))
         Text("Cancella conversazioni Jenny", fontWeight = FontWeight.SemiBold, color = ErrorRed)
     }
+    HorizontalDivider(color = SurfaceVariant)
+    AdminUserManagerSection(state, viewModel)
 }
 
 // ── Smart Home Admin ──────────────────────────────────────────────────────────
@@ -1118,6 +1318,109 @@ private fun SmartHomeAdminSection(state: SettingsUiState, viewModel: SettingsVie
 
     HorizontalDivider(color = SurfaceVariant)
     SaveButton(viewModel)
+}
+
+// ── Admin User Manager ────────────────────────────────────────────────────────
+
+@Composable
+private fun AdminUserManagerSection(state: SettingsUiState, viewModel: SettingsViewModel) {
+    // Load on first composition
+    LaunchedEffect(Unit) { viewModel.loadUsers() }
+
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        SectionLabel("GESTIONE UTENTI")
+        Spacer(Modifier.weight(1f))
+        IconButton(onClick = viewModel::loadUsers) {
+            Icon(Icons.Default.Refresh, contentDescription = "Aggiorna", tint = AlfredBlueLight, modifier = Modifier.size(18.dp))
+        }
+        IconButton(onClick = viewModel::showCreateUser) {
+            Icon(Icons.Default.PersonAdd, contentDescription = "Aggiungi utente", tint = AlfredBlueLight, modifier = Modifier.size(20.dp))
+        }
+    }
+
+    if (state.userActionSuccess != null) {
+        LaunchedEffect(state.userActionSuccess) { delay(2000); viewModel.dismissUserActionFeedback() }
+        Surface(shape = RoundedCornerShape(8.dp), color = SuccessGreen.copy(0.12f), modifier = Modifier.fillMaxWidth()) {
+            Text(state.userActionSuccess!!, modifier = Modifier.padding(10.dp), color = SuccessGreen,
+                style = MaterialTheme.typography.bodySmall)
+        }
+    }
+    if (state.usersError != null) {
+        Text(state.usersError!!, color = ErrorRed, style = MaterialTheme.typography.bodySmall)
+    }
+
+    if (state.isLoadingUsers) {
+        Box(modifier = Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = AlfredBlueLight, modifier = Modifier.size(24.dp))
+        }
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            state.users.forEach { user ->
+                Surface(shape = RoundedCornerShape(10.dp), color = SurfaceVariant, modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(user.username, color = OnBackground, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                            Text(user.role, color = if (user.role == "admin") AlfredBlueLight else OnSurfaceVariant,
+                                fontSize = 11.sp)
+                        }
+                        IconButton(onClick = { viewModel.showEditUser(user) }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Edit, contentDescription = "Modifica", tint = OnSurfaceVariant,
+                                modifier = Modifier.size(16.dp))
+                        }
+                        IconButton(
+                            onClick = { viewModel.deleteUser(user.username) },
+                            modifier = Modifier.size(36.dp),
+                            enabled = user.role != "admin"
+                        ) {
+                            Icon(Icons.Default.PersonRemove, contentDescription = "Elimina",
+                                tint = if (user.role != "admin") ErrorRed else SurfaceVariant,
+                                modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    HorizontalDivider(color = SurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+
+    // Activity log toggle
+    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = viewModel::toggleActivityLog),
+        verticalAlignment = Alignment.CenterVertically) {
+        SectionLabel("LOG ATTIVITÀ")
+        Spacer(Modifier.weight(1f))
+        Icon(
+            if (state.showActivityLog) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            contentDescription = null, tint = OnSurfaceVariant
+        )
+    }
+    AnimatedVisibility(visible = state.showActivityLog, enter = expandVertically(), exit = shrinkVertically()) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 8.dp)) {
+            if (state.isLoadingLog) {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = AlfredBlueLight, modifier = Modifier.size(24.dp))
+                }
+            }
+            if (state.logError != null) {
+                Text(state.logError!!, color = ErrorRed, style = MaterialTheme.typography.bodySmall)
+            }
+            state.activityLog.forEach { entry ->
+                Surface(shape = RoundedCornerShape(6.dp), color = Surface, modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(entry.username, color = AlfredBlueLight, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            Text(entry.action, color = OnBackground, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            Spacer(Modifier.weight(1f))
+                            Text(entry.timestamp.take(16).replace("T", " "), color = OnSurfaceVariant, fontSize = 10.sp)
+                        }
+                        if (entry.details.isNotBlank()) {
+                            Text(entry.details, color = OnSurfaceVariant, fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
