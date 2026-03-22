@@ -52,6 +52,32 @@ data class UserPreferences(
     val jennyAutoOutfit: Boolean = true,
 )
 
+/** Jenny dedicated AI provider config (stored in DataStore). */
+data class JennyAIConfig(
+    val enabled: Boolean = false,
+    val providerType: String = "openrouter",   // "openrouter" | "custom"
+    val apiKey: String = "",
+    val modelId: String = "",
+    val baseUrl: String = "",
+)
+
+/** OpenRouter model info for Jenny AI config. */
+data class OpenRouterModel(
+    val id: String,
+    val name: String,
+    val description: String,
+    val contextLength: Int,
+    val promptCostPer1M: Double,
+    val completionCostPer1M: Double,
+    val isFree: Boolean,
+) {
+    val providerLabel: String get() = id.substringBefore("/", id)
+    val modelName: String get() = id.substringAfter("/", name)
+    /** True when cost is moderate and context is decent — surfaced as "Consigliato". */
+    val isRecommended: Boolean
+        get() = !isFree && promptCostPer1M in 0.01..2.0 && contextLength >= 8192
+}
+
 /** Provider info for local display (mirrors backend ProviderInfo). */
 data class ProviderInfo(
     val id: String,

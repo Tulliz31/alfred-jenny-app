@@ -34,13 +34,56 @@ data class BackendChatMessageDto(
 )
 
 @JsonClass(generateAdapter = true)
+data class JennyAIConfigDto(
+    @Json(name = "enabled") val enabled: Boolean = false,
+    @Json(name = "provider_type") val providerType: String = "openrouter",
+    @Json(name = "api_key") val apiKey: String = "",
+    @Json(name = "model_id") val modelId: String = "",
+    @Json(name = "base_url") val baseUrl: String = "",
+)
+
+@JsonClass(generateAdapter = true)
 data class BackendChatRequestDto(
     @Json(name = "companion_id") val companionId: String,
     @Json(name = "messages") val messages: List<BackendChatMessageDto>,
     @Json(name = "personality_level") val personalityLevel: Int = 3,
     @Json(name = "session_id") val sessionId: String = "",
     @Json(name = "summary_context") val summaryContext: String = "",
-    @Json(name = "provider_override") val providerOverride: String = ""
+    @Json(name = "provider_override") val providerOverride: String = "",
+    @Json(name = "jenny_ai_config") val jennyAiConfig: JennyAIConfigDto? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class OpenRouterModelPricingDto(
+    @Json(name = "prompt") val prompt: Double? = null,
+    @Json(name = "completion") val completion: Double? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class OpenRouterModelDto(
+    @Json(name = "id") val id: String,
+    @Json(name = "name") val name: String,
+    @Json(name = "description") val description: String? = null,
+    @Json(name = "context_length") val contextLength: Int? = null,
+    @Json(name = "prompt_cost") val promptCost: Double? = null,
+    @Json(name = "completion_cost") val completionCost: Double? = null,
+    @Json(name = "is_free") val isFree: Boolean = false,
+)
+
+@JsonClass(generateAdapter = true)
+data class OpenRouterKeyRequestDto(
+    @Json(name = "api_key") val apiKey: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class TestJennyRequestDto(
+    @Json(name = "jenny_ai_config") val jennyAiConfig: JennyAIConfigDto,
+)
+
+@JsonClass(generateAdapter = true)
+data class TestJennyResponseDto(
+    @Json(name = "reply") val reply: String,
+    @Json(name = "provider") val provider: String,
 )
 
 @JsonClass(generateAdapter = true)

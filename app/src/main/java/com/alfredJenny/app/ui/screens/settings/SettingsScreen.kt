@@ -56,6 +56,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenAvatarImport: () -> Unit = {},
     onOpenJennyAvatar: () -> Unit = {},
+    onOpenJennyAI: () -> Unit = {},
     onLogout: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -194,7 +195,7 @@ fun SettingsScreen(
                     SettingsSection.AVANZATE    -> AvanzateSection(state, viewModel)
                     SettingsSection.ACCOUNT     -> AccountSection(state, onLogout)
                     SettingsSection.SMART_HOME  -> SmartHomeAdminSection(state, viewModel)
-                    SettingsSection.SERVIZIO    -> ServizioSection(state, viewModel, onOpenJennyAvatar)
+                    SettingsSection.SERVIZIO    -> ServizioSection(state, viewModel, onOpenJennyAvatar, onOpenJennyAI)
                     null -> {}
                 }
             }
@@ -667,7 +668,7 @@ private fun AccountRow(label: String, value: String) {
 // ── Servizio ──────────────────────────────────────────────────────────────────
 
 @Composable
-private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel, onOpenJennyAvatar: () -> Unit) {
+private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel, onOpenJennyAvatar: () -> Unit, onOpenJennyAI: () -> Unit = {}) {
     SectionLabel("Companion Jenny")
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -826,6 +827,19 @@ private fun ServizioSection(state: SettingsUiState, viewModel: SettingsViewModel
         Icon(Icons.Default.Face, contentDescription = null, tint = JennyPurpleLight, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text("Gestisci avatar Jenny", fontWeight = FontWeight.SemiBold, color = JennyPurpleLight)
+    }
+    HorizontalDivider(color = SurfaceVariant)
+    SectionLabel("AI Dedicata Jenny")
+    Text("Configura un provider AI separato (OpenRouter o URL custom) usato solo da Jenny.",
+        style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+    OutlinedButton(
+        onClick = onOpenJennyAI,
+        modifier = Modifier.fillMaxWidth().height(52.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, JennyPurple)
+    ) {
+        Icon(Icons.Default.SmartToy, contentDescription = null, tint = JennyPurple, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Configura AI Jenny", fontWeight = FontWeight.SemiBold, color = JennyPurple)
     }
     HorizontalDivider(color = SurfaceVariant)
     SectionLabel("Gestione dati")

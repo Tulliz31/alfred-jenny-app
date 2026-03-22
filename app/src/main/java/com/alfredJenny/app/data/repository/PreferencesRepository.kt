@@ -55,6 +55,12 @@ class PreferencesRepository @Inject constructor(
         // Jenny outfit
         val KEY_JENNY_OUTFIT          = stringPreferencesKey("jenny_outfit")
         val KEY_JENNY_AUTO_OUTFIT     = booleanPreferencesKey("jenny_auto_outfit")
+        // Jenny dedicated AI provider
+        val KEY_JENNY_AI_ENABLED       = booleanPreferencesKey("jenny_ai_enabled")
+        val KEY_JENNY_AI_PROVIDER_TYPE = stringPreferencesKey("jenny_ai_provider_type")
+        val KEY_JENNY_AI_KEY           = stringPreferencesKey("jenny_ai_key")
+        val KEY_JENNY_AI_MODEL_ID      = stringPreferencesKey("jenny_ai_model_id")
+        val KEY_JENNY_AI_BASE_URL      = stringPreferencesKey("jenny_ai_base_url")
         // Custom outfit names (6 slots)
         val KEY_CUSTOM_OUTFIT_0_NAME  = stringPreferencesKey("custom_outfit_0_name")
         val KEY_CUSTOM_OUTFIT_1_NAME  = stringPreferencesKey("custom_outfit_1_name")
@@ -132,6 +138,21 @@ class PreferencesRepository @Inject constructor(
     suspend fun saveTuyaRegion(r: String)            { dataStore.edit { it[KEY_TUYA_REGION]        = r } }
     // Onboarding
     suspend fun saveOnboardingCompleted(done: Boolean){ dataStore.edit { it[KEY_ONBOARDING_COMPLETED] = done } }
+    // Jenny dedicated AI provider
+    suspend fun saveJennyAiEnabled(enabled: Boolean)     { dataStore.edit { it[KEY_JENNY_AI_ENABLED]       = enabled } }
+    suspend fun saveJennyAiProviderType(type: String)    { dataStore.edit { it[KEY_JENNY_AI_PROVIDER_TYPE] = type } }
+    suspend fun saveJennyAiKey(key: String)              { dataStore.edit { it[KEY_JENNY_AI_KEY]           = key } }
+    suspend fun saveJennyAiModelId(id: String)           { dataStore.edit { it[KEY_JENNY_AI_MODEL_ID]      = id } }
+    suspend fun saveJennyAiBaseUrl(url: String)          { dataStore.edit { it[KEY_JENNY_AI_BASE_URL]      = url } }
+    suspend fun getJennyAiConfig(): com.alfredJenny.app.data.model.JennyAIConfig = dataStore.data.map { prefs ->
+        com.alfredJenny.app.data.model.JennyAIConfig(
+            enabled      = prefs[KEY_JENNY_AI_ENABLED]       ?: false,
+            providerType = prefs[KEY_JENNY_AI_PROVIDER_TYPE] ?: "openrouter",
+            apiKey       = prefs[KEY_JENNY_AI_KEY]           ?: "",
+            modelId      = prefs[KEY_JENNY_AI_MODEL_ID]      ?: "",
+            baseUrl      = prefs[KEY_JENNY_AI_BASE_URL]      ?: "",
+        )
+    }.first()
     // Jenny outfit
     suspend fun saveJennyOutfit(outfit: String)         { dataStore.edit { it[KEY_JENNY_OUTFIT]          = outfit } }
     suspend fun saveJennyAutoOutfit(enabled: Boolean)   { dataStore.edit { it[KEY_JENNY_AUTO_OUTFIT]     = enabled } }

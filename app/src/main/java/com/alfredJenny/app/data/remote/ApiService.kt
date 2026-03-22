@@ -82,4 +82,12 @@ interface ApiService {
 
     @PUT("devices/admin/tuya-config")
     suspend fun updateTuyaConfig(@Body config: TuyaConfigDto): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    // ── Jenny AI config ───────────────────────────────────────────────────────
+
+    @POST("jenny/openrouter/models")
+    suspend fun getOpenRouterModels(@Body request: OpenRouterKeyRequestDto): Response<List<OpenRouterModelDto>>
+
+    @POST("jenny/test")
+    suspend fun testJennyProvider(@Body request: TestJennyRequestDto): Response<TestJennyResponseDto>
 }

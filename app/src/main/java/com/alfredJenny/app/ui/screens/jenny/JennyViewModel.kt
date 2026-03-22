@@ -207,6 +207,8 @@ class JennyViewModel @Inject constructor(
                                     error = event.message, avatarState = AlfredAvatarState.IDLE)
                         }
                     }
+                    is StreamEvent.CommandExecuted -> { /* smart home commands not used in Jenny */ }
+                    is StreamEvent.CommandFailed   -> { /* smart home commands not used in Jenny */ }
                 }
             }
         }

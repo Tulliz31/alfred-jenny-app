@@ -13,13 +13,23 @@ class ChatMessageIn(BaseModel):
     content: str
 
 
+class JennyAIConfig(BaseModel):
+    """Optional dedicated AI provider configuration for Jenny companion."""
+    enabled: bool = False
+    provider_type: str = "openrouter"   # "openrouter" | "custom"
+    api_key: str = ""
+    model_id: str = ""
+    base_url: str = ""                  # for custom provider
+
+
 class ChatRequest(BaseModel):
     companion_id: str = "alfred"
     messages: list[ChatMessageIn]
     personality_level: int = 3
     session_id: str = ""
-    summary_context: str = ""      # Long-term memory summary injected by client
-    provider_override: str = ""    # Force a specific provider for this request
+    summary_context: str = ""          # Long-term memory summary injected by client
+    provider_override: str = ""        # Force a specific provider for this request
+    jenny_ai_config: JennyAIConfig | None = None  # Dedicated AI for Jenny
 
 
 class ChatResponse(BaseModel):

@@ -53,6 +53,7 @@ class ChatRepository @Inject constructor(
         memorySummaryInterval: Int = 20,
         maxContextMessages: Int = 50,
         fallbackEnabled: Boolean = true,
+        jennyAiConfig: JennyAIConfigDto? = null,
     ): Result<Pair<String, String>> {   // Pair<reply, providerUsed>
         dao.insertMessage(ConversationEntity(sessionId = sessionId, role = "user", content = userText))
 
@@ -73,7 +74,8 @@ class ChatRepository @Inject constructor(
                     personalityLevel = personalityLevel,
                     sessionId = sessionId,
                     summaryContext = summaryContext,
-                    providerOverride = if (!fallbackEnabled) tokenStore.baseUrl.let { "" } else ""
+                    providerOverride = if (!fallbackEnabled) "" else "",
+                    jennyAiConfig = jennyAiConfig,
                 )
             )
             if (response.isSuccessful) {
@@ -105,6 +107,7 @@ class ChatRepository @Inject constructor(
         memoryEnabled: Boolean = true,
         memorySummaryInterval: Int = 20,
         maxContextMessages: Int = 50,
+        jennyAiConfig: JennyAIConfigDto? = null,
     ): Flow<StreamEvent> = callbackFlow {
         // Save user message
         dao.insertMessage(ConversationEntity(sessionId = sessionId, role = "user", content = userText))
@@ -124,6 +127,7 @@ class ChatRepository @Inject constructor(
             personalityLevel = personalityLevel,
             sessionId = sessionId,
             summaryContext = summaryContext,
+            jennyAiConfig = jennyAiConfig,
         )
 
         val jsonBody = moshi.adapter(BackendChatRequestDto::class.java).toJson(requestDto)
@@ -282,6 +286,33 @@ class ChatRepository @Inject constructor(
         val response = apiService.getCompanions()
         if (response.isSuccessful) response.body()!!
         else error(parseApiError(response.errorBody()?.string(), response.code()))
+    }
+
+    // ── Jenny AI config ───────────────────────────────────────────────────────
+
+    suspend fun getOpenRouterModels(apiKey: String): Result<List<OpenRouterModel>> = runCatching {
+        val response = apiService.getOpenRouterModels(OpenRouterKeyRequestDto(apiKey = apiKey))
+        if (response.isSuccessful) {
+            response.body()!!.map { dto ->
+                OpenRouterModel(
+                    id = dto.id,
+                    name = dto.name,
+                    description = dto.description ?: "",
+                    contextLength = dto.contextLength ?: 0,
+                    promptCostPer1M = dto.promptCost ?: 0.0,
+                    completionCostPer1M = dto.completionCost ?: 0.0,
+                    isFree = dto.isFree,
+                )
+            }
+        } else error(parseApiError(response.errorBody()?.string(), response.code()))
+    }
+
+    suspend fun testJennyProvider(config: JennyAIConfigDto): Result<Pair<String, String>> = runCatching {
+        val response = apiService.testJennyProvider(TestJennyRequestDto(jennyAiConfig = config))
+        if (response.isSuccessful) {
+            val body = response.body()!!
+            Pair(body.reply, body.provider)
+        } else error(parseApiError(response.errorBody()?.string(), response.code()))
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

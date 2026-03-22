@@ -12,6 +12,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.alfredJenny.app.data.repository.AuthRepository
 import com.alfredJenny.app.ui.screens.avatar.AvatarManagerScreen
+import com.alfredJenny.app.ui.screens.jenny.JennyAIScreen
 import com.alfredJenny.app.ui.screens.login.LoginScreen
 import com.alfredJenny.app.ui.screens.login.LoginViewModel
 import com.alfredJenny.app.ui.screens.main.MainScreen
@@ -31,6 +32,7 @@ object Routes {
     const val AVATAR_IMPORT   = "avatar_manager?mode=alfred"  // legacy alias
     const val AVATAR_ALFRED   = "avatar_manager?mode=alfred"
     const val AVATAR_JENNY    = "avatar_manager?mode=jenny"
+    const val JENNY_AI        = "jenny_ai"
 }
 
 // ── Transition presets ────────────────────────────────────────────────────────
@@ -124,8 +126,20 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
                 onOpenAvatarImport = { navController.navigate(Routes.AVATAR_ALFRED) },
                 onOpenJennyAvatar  = { navController.navigate(Routes.AVATAR_JENNY) },
+                onOpenJennyAI      = { navController.navigate(Routes.JENNY_AI) },
                 onLogout = { navigateToLogin() }
             )
+        }
+
+        // ── Jenny AI config ───────────────────────────────────────────────────
+        composable(
+            route = Routes.JENNY_AI,
+            enterTransition = { enterSlide },
+            exitTransition  = { exitSlide },
+            popEnterTransition = { popEnter },
+            popExitTransition  = { popExit },
+        ) {
+            JennyAIScreen(onBack = { navController.popBackStack() })
         }
 
         // ── Avatar manager ────────────────────────────────────────────────────

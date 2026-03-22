@@ -1,10 +1,13 @@
 """
 AI Service — routes chat requests to the active provider.
-Supported: OpenAI GPT-4o, Anthropic Claude 3.5 Sonnet, Google Gemini 1.5 Pro.
+Supported: OpenAI GPT-4o, Anthropic Claude 3.5 Sonnet, Google Gemini 1.5 Pro,
+           OpenRouter (any model), Custom OpenAI-compatible (Ollama, LM Studio, etc.)
 
 Public functions:
-  chat(...)         → (reply_text, provider_used, fallback_used)
-  chat_stream(...)  → AsyncGenerator[str, None]  (raw text chunks + control tokens)
+  chat(...)                        → (reply_text, provider_used, fallback_used)
+  chat_stream(...)                 → AsyncGenerator[str, None]
+  chat_with_jenny_config(...)      → (reply_text, provider_label, fallback_used)
+  chat_stream_with_jenny_config(...) → AsyncGenerator[str, None]
 """
 from __future__ import annotations
 
@@ -206,6 +209,138 @@ async def chat(
             else:
                 raise
     raise last_exc
+
+
+# ── OpenRouter provider ───────────────────────────────────────────────────────
+
+_OPENROUTER_BASE = "https://openrouter.ai/api/v1"
+_OPENROUTER_HEADERS = {
+    "HTTP-Referer": "https://alfred-jenny-app.local",
+    "X-Title": "Alfred Jenny App",
+}
+
+
+async def _call_openrouter(api_key: str, model: str, system_prompt: str, messages: list[ChatMessageIn]) -> str:
+    headers = {"Authorization": f"Bearer {api_key}", **_OPENROUTER_HEADERS}
+    async with httpx.AsyncClient(timeout=60) as c:
+        r = await c.post(
+            f"{_OPENROUTER_BASE}/chat/completions",
+            headers=headers,
+            json={"model": model, "messages": _openai_msgs(system_prompt, messages), "max_tokens": 1024},
+        )
+    if r.status_code != 200:
+        raise HTTPException(502, f"OpenRouter error {r.status_code}: {r.text[:300]}")
+    return r.json()["choices"][0]["message"]["content"]
+
+
+async def _stream_openrouter(api_key: str, model: str, system_prompt: str, messages: list[ChatMessageIn]) -> AsyncGenerator[str, None]:
+    headers = {"Authorization": f"Bearer {api_key}", **_OPENROUTER_HEADERS}
+    async with httpx.AsyncClient(timeout=120) as c:
+        async with c.stream(
+            "POST", f"{_OPENROUTER_BASE}/chat/completions",
+            headers=headers,
+            json={"model": model, "messages": _openai_msgs(system_prompt, messages),
+                  "max_tokens": 1024, "stream": True},
+        ) as resp:
+            if resp.status_code != 200:
+                body = await resp.aread()
+                raise HTTPException(502, f"OpenRouter stream error {resp.status_code}: {body[:200]}")
+            async for line in resp.aiter_lines():
+                if line.startswith("data: "):
+                    raw = line[6:]
+                    if raw == "[DONE]":
+                        return
+                    try:
+                        delta = json.loads(raw)["choices"][0]["delta"].get("content", "")
+                        if delta:
+                            yield delta
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        pass
+
+
+# ── Custom OpenAI-compatible provider ────────────────────────────────────────
+
+async def _call_custom(base_url: str, api_key: str, model: str, system_prompt: str, messages: list[ChatMessageIn]) -> str:
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    url = base_url.rstrip("/") + "/chat/completions"
+    async with httpx.AsyncClient(timeout=60) as c:
+        r = await c.post(url, headers=headers,
+                         json={"model": model, "messages": _openai_msgs(system_prompt, messages), "max_tokens": 1024})
+    if r.status_code != 200:
+        raise HTTPException(502, f"Custom AI error {r.status_code}: {r.text[:300]}")
+    return r.json()["choices"][0]["message"]["content"]
+
+
+async def _stream_custom(base_url: str, api_key: str, model: str, system_prompt: str, messages: list[ChatMessageIn]) -> AsyncGenerator[str, None]:
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    url = base_url.rstrip("/") + "/chat/completions"
+    async with httpx.AsyncClient(timeout=120) as c:
+        async with c.stream(
+            "POST", url, headers=headers,
+            json={"model": model, "messages": _openai_msgs(system_prompt, messages),
+                  "max_tokens": 1024, "stream": True},
+        ) as resp:
+            if resp.status_code != 200:
+                body = await resp.aread()
+                raise HTTPException(502, f"Custom stream error {resp.status_code}: {body[:200]}")
+            async for line in resp.aiter_lines():
+                if line.startswith("data: "):
+                    raw = line[6:]
+                    if raw == "[DONE]":
+                        return
+                    try:
+                        delta = json.loads(raw)["choices"][0]["delta"].get("content", "")
+                        if delta:
+                            yield delta
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        pass
+
+
+# ── Jenny-specific chat functions ─────────────────────────────────────────────
+
+async def chat_with_jenny_config(
+    system_prompt: str,
+    messages: list[ChatMessageIn],
+    jenny_config,   # models.message.JennyAIConfig | None
+    with_fallback: bool = True,
+) -> tuple[str, str, bool]:
+    """Returns (reply, provider_label, fallback_used)."""
+    if jenny_config and jenny_config.enabled and jenny_config.api_key and jenny_config.model_id:
+        if jenny_config.provider_type == "openrouter":
+            reply = await _call_openrouter(jenny_config.api_key, jenny_config.model_id, system_prompt, messages)
+            return reply, f"openrouter/{jenny_config.model_id}", False
+        elif jenny_config.provider_type == "custom" and jenny_config.base_url:
+            reply = await _call_custom(jenny_config.base_url, jenny_config.api_key, jenny_config.model_id, system_prompt, messages)
+            return reply, f"custom/{jenny_config.model_id}", False
+    # Fallback to global provider
+    reply, pid, fallback = await chat(system_prompt, messages, with_fallback=with_fallback)
+    return reply, pid.value, fallback
+
+
+async def chat_stream_with_jenny_config(
+    system_prompt: str,
+    messages: list[ChatMessageIn],
+    jenny_config,   # models.message.JennyAIConfig | None
+    with_fallback: bool = True,
+) -> AsyncGenerator[str, None]:
+    if jenny_config and jenny_config.enabled and jenny_config.api_key and jenny_config.model_id:
+        if jenny_config.provider_type == "openrouter":
+            yield f"\x00PROVIDER:openrouter/{jenny_config.model_id}"
+            async for chunk in _stream_openrouter(jenny_config.api_key, jenny_config.model_id, system_prompt, messages):
+                yield chunk
+            return
+        elif jenny_config.provider_type == "custom" and jenny_config.base_url:
+            yield f"\x00PROVIDER:custom/{jenny_config.model_id}"
+            async for chunk in _stream_custom(jenny_config.base_url, jenny_config.api_key, jenny_config.model_id, system_prompt, messages):
+                yield chunk
+            return
+    # Fallback to global provider
+    async for chunk in chat_stream(system_prompt, messages, with_fallback=with_fallback):
+        yield chunk
 
 
 async def chat_stream(
