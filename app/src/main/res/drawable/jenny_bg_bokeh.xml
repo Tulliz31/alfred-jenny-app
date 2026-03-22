@@ -1,0 +1,33 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp" android:height="320dp"
+    android:viewportWidth="200" android:viewportHeight="320">
+    <!-- Deep purple background -->
+    <path android:fillColor="#1A0530"
+        android:pathData="M0,0 L200,0 L200,320 L0,320 Z"/>
+    <!-- Large bokeh — centre-left -->
+    <path android:fillColor="#7B4CBF" android:fillAlpha="0.18"
+        android:pathData="M-10,80 A70,70 0 1,0 130,80 A70,70 0 1,0 -10,80 Z"/>
+    <!-- Large bokeh — right -->
+    <path android:fillColor="#9B59B6" android:fillAlpha="0.14"
+        android:pathData="M110,20 A60,60 0 1,0 230,20 A60,60 0 1,0 110,20 Z"/>
+    <!-- Medium bokeh — bottom-left -->
+    <path android:fillColor="#C39BD3" android:fillAlpha="0.14"
+        android:pathData="M-20,230 A55,55 0 1,0 90,230 A55,55 0 1,0 -20,230 Z"/>
+    <!-- Medium bokeh — bottom-right -->
+    <path android:fillColor="#A569BD" android:fillAlpha="0.13"
+        android:pathData="M130,268 A65,65 0 1,0 260,268 A65,65 0 1,0 130,268 Z"/>
+    <!-- Small accent — top-right -->
+    <path android:fillColor="#D7BDE2" android:fillAlpha="0.20"
+        android:pathData="M150,55 A30,30 0 1,0 210,55 A30,30 0 1,0 150,55 Z"/>
+    <!-- Tiny bright specular points -->
+    <path android:fillColor="#E8DAEF" android:fillAlpha="0.45"
+        android:pathData="M168,145 A5,5 0 1,0 178,145 A5,5 0 1,0 168,145 Z"/>
+    <path android:fillColor="#D7BDE2" android:fillAlpha="0.38"
+        android:pathData="M30,200 A4,4 0 1,0 38,200 A4,4 0 1,0 30,200 Z"/>
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.28"
+        android:pathData="M86,272 A3,3 0 1,0 92,272 A3,3 0 1,0 86,272 Z"/>
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.22"
+        android:pathData="M155,200 A2,2 0 1,0 159,200 A2,2 0 1,0 155,200 Z"/>
+    <path android:fillColor="#C39BD3" android:fillAlpha="0.30"
+        android:pathData="M48,290 A4,4 0 1,0 56,290 A4,4 0 1,0 48,290 Z"/>
+</vector>

@@ -1,0 +1,19 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp" android:height="320dp"
+    android:viewportWidth="200" android:viewportHeight="320">
+    <!-- Mouth cavity -->
+    <path android:fillColor="#7B1030"
+        android:pathData="M88,116 Q100,113 112,116 Q113,122 100,127 Q87,122 88,116 Z"/>
+    <!-- Teeth -->
+    <path android:fillColor="#F5F0F0"
+        android:pathData="M91,116 Q100,114 109,116 L109,120 Q100,118 91,120 Z"/>
+    <!-- Upper lip -->
+    <path android:fillColor="#E8A0A4"
+        android:pathData="M88,116 Q94,111 100,113 Q106,111 112,116 Q107,118 100,116 Q93,118 88,116 Z"/>
+    <!-- Lower lip -->
+    <path android:fillColor="#D4878A"
+        android:pathData="M88,116 Q100,127 112,116 Q107,124 100,126 Q93,124 88,116 Z"/>
+    <!-- Lower lip shine -->
+    <path android:fillColor="#F4B8B8" android:fillAlpha="0.45"
+        android:pathData="M94,120 A6,3 0 1,0 106,120 A6,3 0 1,0 94,120 Z"/>
+</vector>

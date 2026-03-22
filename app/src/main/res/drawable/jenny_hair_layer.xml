@@ -1,0 +1,33 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp" android:height="320dp"
+    android:viewportWidth="200" android:viewportHeight="320">
+    <!-- Left hair — main flow -->
+    <path android:fillColor="#1E0840"
+        android:pathData="M58,55 Q44,65 36,96 Q30,126 34,165 Q36,205 40,248 Q38,278 44,308 L60,298 Q54,248 57,195 Q59,152 64,122 Q70,92 67,66 Z"/>
+    <!-- Right hair — main flow -->
+    <path android:fillColor="#1E0840"
+        android:pathData="M142,55 Q156,65 164,96 Q170,126 166,165 Q164,205 160,248 Q162,278 156,308 L140,298 Q146,248 143,195 Q141,152 136,122 Q130,92 133,66 Z"/>
+    <!-- Crown covering forehead -->
+    <path android:fillColor="#1E0840"
+        android:pathData="M58,55 Q72,26 100,18 Q128,26 142,55 Q128,44 100,42 Q72,44 58,55 Z"/>
+    <!-- Left inner strand -->
+    <path android:fillColor="#2A0A5C"
+        android:pathData="M47,82 Q40,112 42,145 Q45,120 50,96 Z"/>
+    <!-- Right inner strand -->
+    <path android:fillColor="#2A0A5C"
+        android:pathData="M153,82 Q160,112 158,145 Q155,120 150,96 Z"/>
+    <!-- Left wispy front strand -->
+    <path android:fillColor="#2A0A5C" android:fillAlpha="0.70"
+        android:pathData="M65,55 Q58,80 60,110 Q63,82 68,60 Z"/>
+    <!-- Right wispy front strand -->
+    <path android:fillColor="#2A0A5C" android:fillAlpha="0.70"
+        android:pathData="M135,55 Q142,80 140,110 Q137,82 132,60 Z"/>
+    <!-- Hair shine highlight -->
+    <path android:strokeColor="#7B4CBF" android:strokeWidth="1.8" android:strokeLineCap="round"
+        android:fillColor="#00000000" android:strokeAlpha="0.50"
+        android:pathData="M72,24 Q90,20 108,22"/>
+    <!-- Secondary shine -->
+    <path android:strokeColor="#9B6BDF" android:strokeWidth="1.2" android:strokeLineCap="round"
+        android:fillColor="#00000000" android:strokeAlpha="0.35"
+        android:pathData="M76,28 Q94,25 112,27"/>
+</vector>

@@ -1,0 +1,35 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp" android:height="320dp"
+    android:viewportWidth="200" android:viewportHeight="320">
+    <!-- ── LEFT EYE CLOSED ───────────────────────────── -->
+    <!-- Closed upper lash curve -->
+    <path android:strokeColor="#2C1654" android:strokeWidth="2.5" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M64,92 Q78,84 92,92"/>
+    <!-- Lash flick left -->
+    <path android:strokeColor="#2C1654" android:strokeWidth="2" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M64,92 L60,89"/>
+    <!-- Lash flick right -->
+    <path android:strokeColor="#2C1654" android:strokeWidth="2" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M92,92 L96,89"/>
+    <!-- Lower lid hint -->
+    <path android:strokeColor="#D4A0C0" android:strokeWidth="0.9" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M65,93 Q78,97 91,93"/>
+
+    <!-- ── RIGHT EYE CLOSED ──────────────────────────── -->
+    <path android:strokeColor="#2C1654" android:strokeWidth="2.5" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M108,92 Q122,84 136,92"/>
+    <path android:strokeColor="#2C1654" android:strokeWidth="2" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M108,92 L104,89"/>
+    <path android:strokeColor="#2C1654" android:strokeWidth="2" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M136,92 L140,89"/>
+    <path android:strokeColor="#D4A0C0" android:strokeWidth="0.9" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M109,93 Q122,97 135,93"/>
+</vector>

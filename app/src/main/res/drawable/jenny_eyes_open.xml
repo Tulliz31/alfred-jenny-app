@@ -1,0 +1,49 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp" android:height="320dp"
+    android:viewportWidth="200" android:viewportHeight="320">
+    <!-- ── LEFT EYE ──────────────────────────────────── -->
+    <!-- Eye white -->
+    <path android:fillColor="#FAFAFA"
+        android:pathData="M64,89 A14,9 0 1,0 92,89 A14,9 0 1,0 64,89 Z"/>
+    <!-- Iris — violet -->
+    <path android:fillColor="#7B3CB7"
+        android:pathData="M71,89 A7,7 0 1,0 85,89 A7,7 0 1,0 71,89 Z"/>
+    <!-- Pupil -->
+    <path android:fillColor="#120020"
+        android:pathData="M75,89 A3.5,3.5 0 1,0 82,89 A3.5,3.5 0 1,0 75,89 Z"/>
+    <!-- Shine highlight -->
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M77,86 A2,2 0 1,0 81,86 A2,2 0 1,0 77,86 Z"/>
+    <!-- Upper lash line -->
+    <path android:strokeColor="#2C1654" android:strokeWidth="2.2" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M64,89 Q78,81 92,89"/>
+    <!-- Lower lid line -->
+    <path android:strokeColor="#D4A0C0" android:strokeWidth="0.9" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M65,93 Q78,98 91,93"/>
+    <!-- Left lash flick -->
+    <path android:strokeColor="#2C1654" android:strokeWidth="1.8" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M64,89 L61,86"/>
+
+    <!-- ── RIGHT EYE ─────────────────────────────────── -->
+    <path android:fillColor="#FAFAFA"
+        android:pathData="M108,89 A14,9 0 1,0 136,89 A14,9 0 1,0 108,89 Z"/>
+    <path android:fillColor="#7B3CB7"
+        android:pathData="M115,89 A7,7 0 1,0 129,89 A7,7 0 1,0 115,89 Z"/>
+    <path android:fillColor="#120020"
+        android:pathData="M119,89 A3.5,3.5 0 1,0 126,89 A3.5,3.5 0 1,0 119,89 Z"/>
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M121,86 A2,2 0 1,0 125,86 A2,2 0 1,0 121,86 Z"/>
+    <path android:strokeColor="#2C1654" android:strokeWidth="2.2" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M108,89 Q122,81 136,89"/>
+    <path android:strokeColor="#D4A0C0" android:strokeWidth="0.9" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M109,93 Q122,98 135,93"/>
+    <!-- Right lash flick -->
+    <path android:strokeColor="#2C1654" android:strokeWidth="1.8" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M136,89 L139,86"/>
+</vector>

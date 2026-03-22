@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp" android:height="320dp"
+    android:viewportWidth="200" android:viewportHeight="320">
+    <!-- Upper lip outline -->
+    <path android:fillColor="#E8A0A4" android:fillAlpha="0.80"
+        android:pathData="M87,117 Q94,113 100,115 Q106,113 113,117 Q108,120 100,118 Q92,120 87,117 Z"/>
+    <!-- Subtle smile curve -->
+    <path android:strokeColor="#D4878A" android:strokeWidth="1.8" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M88,118 Q100,125 112,118"/>
+    <!-- Lower lip highlight -->
+    <path android:fillColor="#F4B8B8" android:fillAlpha="0.45"
+        android:pathData="M93,120 A7,3.5 0 1,0 107,120 A7,3.5 0 1,0 93,120 Z"/>
+</vector>

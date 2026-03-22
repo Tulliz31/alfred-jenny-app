@@ -1,0 +1,51 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp" android:height="320dp"
+    android:viewportWidth="200" android:viewportHeight="320">
+    <!-- Hair back (behind face) -->
+    <path android:fillColor="#1E0840"
+        android:pathData="M58,55 Q62,22 100,16 Q138,22 142,55 L148,105 Q135,72 100,70 Q65,72 52,105 Z"/>
+    <!-- Face oval — skin tone -->
+    <path android:fillColor="#FDBCB4"
+        android:pathData="M58,92 A42,52 0 1,0 142,92 A42,52 0 1,0 58,92 Z"/>
+    <!-- Left ear -->
+    <path android:fillColor="#F9A899"
+        android:pathData="M55,88 A9,11 0 1,0 55,110 A9,11 0 1,0 55,88 Z"/>
+    <!-- Right ear -->
+    <path android:fillColor="#F9A899"
+        android:pathData="M145,88 A9,11 0 1,0 145,110 A9,11 0 1,0 145,88 Z"/>
+    <!-- Neck -->
+    <path android:fillColor="#FDBCB4"
+        android:pathData="M88,140 L88,165 Q100,169 112,165 L112,140 Q100,144 88,140 Z"/>
+    <!-- Shoulders & body — violet -->
+    <path android:fillColor="#5B2A8D"
+        android:pathData="M38,168 Q38,162 68,158 Q100,154 132,158 Q162,162 162,168 L178,320 L22,320 Z"/>
+    <!-- Body shading highlight -->
+    <path android:fillColor="#7B4CBF" android:fillAlpha="0.40"
+        android:pathData="M80,168 Q100,158 120,168 L120,195 Q100,182 80,195 Z"/>
+    <!-- Collar skin area -->
+    <path android:fillColor="#FDBCB4"
+        android:pathData="M88,158 Q100,168 112,158 L112,165 Q100,174 88,165 Z"/>
+    <!-- Left eyebrow -->
+    <path android:strokeColor="#5D4037" android:strokeWidth="2.2" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M67,76 Q78,71 89,73"/>
+    <!-- Right eyebrow -->
+    <path android:strokeColor="#5D4037" android:strokeWidth="2.2" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M111,73 Q122,71 133,76"/>
+    <!-- Nose (subtle) -->
+    <path android:strokeColor="#E8A090" android:strokeWidth="1.5" android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M97,107 Q100,112 103,107"/>
+    <!-- Cheek blush — left -->
+    <path android:fillColor="#F1948A" android:fillAlpha="0.32"
+        android:pathData="M61,102 A13,7 0 1,0 87,102 A13,7 0 1,0 61,102 Z"/>
+    <!-- Cheek blush — right -->
+    <path android:fillColor="#F1948A" android:fillAlpha="0.32"
+        android:pathData="M113,102 A13,7 0 1,0 139,102 A13,7 0 1,0 113,102 Z"/>
+    <!-- Small gem/jewel at collar -->
+    <path android:fillColor="#D7BDE2"
+        android:pathData="M97,168 A3,3 0 1,0 103,168 A3,3 0 1,0 97,168 Z"/>
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.60"
+        android:pathData="M98,167 A1.2,1.2 0 1,0 100,167 A1.2,1.2 0 1,0 98,167 Z"/>
+</vector>
