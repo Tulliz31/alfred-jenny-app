@@ -52,6 +52,10 @@ data class UserPreferences(
     val jennyAutoOutfit: Boolean = true,
     // Theme
     val lightTheme: Boolean = false,
+    // Notes & Calendar
+    val notesEnabled: Boolean = true,
+    val defaultCalendarId: Long = -1L,
+    val calendarConfirmBeforeAdd: Boolean = true,
 )
 
 /** A user account as returned by the admin endpoint. */
@@ -164,4 +168,12 @@ sealed class StreamEvent {
     data class CommandExecuted(val deviceName: String, val action: String) : StreamEvent()
     /** A smart home command attempted by the AI failed. */
     data class CommandFailed(val deviceName: String, val error: String) : StreamEvent()
+    /** AI created a memo/note. */
+    data class MemoSaved(val title: String, val content: String, val companion: String) : StreamEvent()
+    /** AI wants to add a calendar event (pending user confirmation). */
+    data class EventRequested(val title: String, val date: String, val startTime: String, val endTime: String, val description: String) : StreamEvent()
+    /** AI scheduled a reminder. */
+    data class ReminderScheduled(val text: String, val date: String, val time: String) : StreamEvent()
+    /** AI requested calendar data — app should read and display. */
+    data class CalendarRead(val period: String) : StreamEvent()
 }

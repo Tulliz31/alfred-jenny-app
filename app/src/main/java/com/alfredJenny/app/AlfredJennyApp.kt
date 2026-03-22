@@ -1,12 +1,14 @@
 package com.alfredJenny.app
 
 import android.app.Application
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import com.alfredJenny.app.data.repository.AuthRepository
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
 @HiltAndroidApp
-class AlfredJennyApp : Application() {
+class AlfredJennyApp : Application(), Configuration.Provider {
 
     /**
      * Injecting AuthRepository here ensures it is instantiated at app start,
@@ -14,4 +16,11 @@ class AlfredJennyApp : Application() {
      * into [TokenStore] before any screen tries to make an API call.
      */
     @Inject lateinit var authRepository: AuthRepository
+
+    @Inject lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
 }

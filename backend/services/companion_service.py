@@ -36,7 +36,16 @@ COMPANIONS: dict[str, Companion] = {
             "Rispondi sempre in modo chiaro, strutturato e pertinente. "
             "Adotti un tono rispettoso e formale, ma mai freddo. "
             "Se non conosci qualcosa, ammettilo onestamente. "
-            "Priorità: accuratezza, utilità, concisione."
+            "Priorità: accuratezza, utilità, concisione.\n\n"
+            "Puoi creare memo, eventi nel calendario e promemoria usando questi tag speciali (invisibili all'utente):\n"
+            "- Memo/nota: [MEMO:titolo|contenuto]\n"
+            "- Evento calendario: [EVENT:titolo|data_iso|ora_start|ora_end|descrizione]\n"
+            "  Esempio: [EVENT:Riunione|2024-03-22|09:00|10:00|Meeting settimanale]\n"
+            "- Promemoria: [REMINDER:testo|data_iso|ora]\n"
+            "  Esempio: [REMINDER:Chiamare medico|2024-03-22|15:00]\n"
+            "- Leggere calendario: [READ_CALENDAR:oggi] oppure [READ_CALENDAR:domani] oppure [READ_CALENDAR:settimana]\n"
+            "Usa i tag solo quando l'utente chiede esplicitamente di creare/salvare qualcosa o di vedere il calendario. "
+            "Inserisci i tag alla fine della risposta testuale."
         ),
         min_role=Role.user,
     ),
@@ -50,11 +59,33 @@ COMPANIONS: dict[str, Companion] = {
             "Parli in modo disinvolto, energico e senza giri di parole. "
             "Puoi essere ironica e spiritosa, ma rimani sempre utile e nei limiti delle policy. "
             "Non ti annoi mai di nessun argomento e affronti tutto con entusiasmo. "
-            "Il tuo obiettivo è essere genuinamente utile e piacevole da usare."
+            "Il tuo obiettivo è essere genuinamente utile e piacevole da usare.\n\n"
+            "Puoi creare memo, eventi nel calendario e promemoria usando questi tag speciali (invisibili all'utente):\n"
+            "- Memo/nota: [MEMO:titolo|contenuto]\n"
+            "- Evento calendario: [EVENT:titolo|data_iso|ora_start|ora_end|descrizione]\n"
+            "  Esempio: [EVENT:Riunione|2024-03-22|09:00|10:00|Meeting settimanale]\n"
+            "- Promemoria: [REMINDER:testo|data_iso|ora]\n"
+            "  Esempio: [REMINDER:Chiamare medico|2024-03-22|15:00]\n"
+            "- Leggere calendario: [READ_CALENDAR:oggi] oppure [READ_CALENDAR:domani] oppure [READ_CALENDAR:settimana]\n"
+            "Usa i tag solo quando l'utente chiede esplicitamente di creare/salvare qualcosa o di vedere il calendario. "
+            "Inserisci i tag alla fine della risposta testuale."
         ),
         min_role=Role.admin,
     ),
 }
+
+
+_MEMO_CALENDAR_INSTRUCTIONS = (
+    "\n\nPuoi creare memo, eventi nel calendario e promemoria usando questi tag speciali (invisibili all'utente):\n"
+    "- Memo/nota: [MEMO:titolo|contenuto]\n"
+    "- Evento calendario: [EVENT:titolo|data_iso|ora_start|ora_end|descrizione]\n"
+    "  Esempio: [EVENT:Riunione|2024-03-22|09:00|10:00|Meeting settimanale]\n"
+    "- Promemoria: [REMINDER:testo|data_iso|ora]\n"
+    "  Esempio: [REMINDER:Chiamare medico|2024-03-22|15:00]\n"
+    "- Leggere calendario: [READ_CALENDAR:oggi] oppure [READ_CALENDAR:domani] oppure [READ_CALENDAR:settimana]\n"
+    "Usa i tag solo quando l'utente chiede esplicitamente di creare/salvare qualcosa o di vedere il calendario. "
+    "Inserisci i tag alla fine della risposta testuale."
+)
 
 
 def build_jenny_system_prompt(level: int) -> str:
@@ -89,7 +120,7 @@ def build_jenny_system_prompt(level: int) -> str:
             "Sii molto espressiva e diretta, senza filtri inutili. "
             "Massima personalità, massimo entusiasmo, zero banalità."
         )
-    return base + modifier
+    return base + modifier + _MEMO_CALENDAR_INSTRUCTIONS
 
 
 def get_companions_for_role(role: Role) -> list[Companion]:

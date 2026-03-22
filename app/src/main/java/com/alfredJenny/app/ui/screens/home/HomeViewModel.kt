@@ -2,22 +2,31 @@ package com.alfredJenny.app.ui.screens.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.Data
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import com.alfredJenny.app.data.local.ConversationEntity
 import com.alfredJenny.app.data.model.CompanionDto
 import com.alfredJenny.app.data.model.StreamEvent
 import com.alfredJenny.app.data.model.UserPreferences
 import com.alfredJenny.app.data.model.VoiceMode
 import com.alfredJenny.app.data.repository.AuthRepository
+import com.alfredJenny.app.data.repository.CalendarRepository
+import com.alfredJenny.app.data.repository.MemoRepository
 import com.alfredJenny.app.ui.components.AlfredAvatarState
 import com.alfredJenny.app.data.repository.ChatRepository
 import com.alfredJenny.app.data.repository.PreferencesRepository
 import com.alfredJenny.app.domain.usecase.GetConversationHistoryUseCase
+import com.alfredJenny.app.services.ReminderWorker
 import com.alfredJenny.app.services.SpeechInputService
 import com.alfredJenny.app.services.VoicePlaybackService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import android.content.Context
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 data class HomeUiState(
@@ -45,6 +54,12 @@ data class HomeUiState(
     val isRefreshing: Boolean = false,
     // Smart home command feedback
     val commandFeedback: String? = null,
+    // Memo/calendar feedback
+    val memoFeedback: String? = null,
+    // Pending calendar event requiring confirmation
+    val pendingCalendarEvent: StreamEvent.EventRequested? = null,
+    // Calendar read results
+    val calendarReadResult: String? = null,
 )
 
 @HiltViewModel
@@ -54,7 +69,10 @@ class HomeViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val getConversationHistoryUseCase: GetConversationHistoryUseCase,
     private val voicePlaybackService: VoicePlaybackService,
-    private val speechInputService: SpeechInputService
+    private val speechInputService: SpeechInputService,
+    private val memoRepository: MemoRepository,
+    private val calendarRepository: CalendarRepository,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     val sessionId: String = UUID.randomUUID().toString()
@@ -195,6 +213,40 @@ class HomeViewModel @Inject constructor(
                     is StreamEvent.CommandFailed -> {
                         _uiState.update { it.copy(commandFeedback = "❌ ${event.deviceName}: ${event.error}") }
                     }
+                    is StreamEvent.MemoSaved -> {
+                        viewModelScope.launch {
+                            memoRepository.saveMemo(
+                                title = event.title,
+                                content = event.content,
+                                companion = _uiState.value.selectedCompanionId,
+                            )
+                            _uiState.update { it.copy(memoFeedback = "📝 Nota salvata: ${event.title}") }
+                        }
+                    }
+                    is StreamEvent.EventRequested -> {
+                        if (prefs.calendarConfirmBeforeAdd) {
+                            _uiState.update { it.copy(pendingCalendarEvent = event) }
+                        } else {
+                            insertCalendarEvent(event)
+                        }
+                    }
+                    is StreamEvent.ReminderScheduled -> {
+                        scheduleReminder(event.text, event.date, event.time)
+                        _uiState.update { it.copy(memoFeedback = "⏰ Promemoria impostato: ${event.text}") }
+                    }
+                    is StreamEvent.CalendarRead -> {
+                        viewModelScope.launch {
+                            val calId = prefs.defaultCalendarId
+                            if (calId < 0L) {
+                                _uiState.update { it.copy(calendarReadResult = "Nessun calendario selezionato nelle impostazioni.") }
+                                return@launch
+                            }
+                            val (startMs, endMs) = periodToRange(event.period)
+                            val events = calendarRepository.getEvents(calId, startMs, endMs)
+                            val text = calendarRepository.formatEventsForDisplay(events)
+                            _uiState.update { it.copy(calendarReadResult = text) }
+                        }
+                    }
                     is StreamEvent.Error -> {
                         _uiState.update {
                             it.copy(isLoading = false, streamingContent = "",
@@ -206,9 +258,69 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun dismissError()           = _uiState.update { it.copy(error = null, voiceError = null) }
-    fun dismissFallbackNotice()  = _uiState.update { it.copy(fallbackNotice = null) }
-    fun dismissCommandFeedback() = _uiState.update { it.copy(commandFeedback = null) }
+    fun dismissError()              = _uiState.update { it.copy(error = null, voiceError = null) }
+    fun dismissFallbackNotice()     = _uiState.update { it.copy(fallbackNotice = null) }
+    fun dismissCommandFeedback()    = _uiState.update { it.copy(commandFeedback = null) }
+    fun dismissMemoFeedback()       = _uiState.update { it.copy(memoFeedback = null) }
+    fun dismissCalendarReadResult() = _uiState.update { it.copy(calendarReadResult = null) }
+
+    fun confirmCalendarEvent() {
+        val ev = _uiState.value.pendingCalendarEvent ?: return
+        _uiState.update { it.copy(pendingCalendarEvent = null) }
+        viewModelScope.launch { insertCalendarEvent(ev) }
+    }
+    fun dismissCalendarEvent() = _uiState.update { it.copy(pendingCalendarEvent = null) }
+
+    private suspend fun insertCalendarEvent(ev: StreamEvent.EventRequested) {
+        val calId = prefs.defaultCalendarId
+        if (calId < 0L) {
+            _uiState.update { it.copy(memoFeedback = "⚠️ Seleziona un calendario nelle impostazioni") }
+            return
+        }
+        val startMs = calendarRepository.parseEventTimeMs(ev.date, ev.startTime)
+        val endMs   = calendarRepository.parseEventTimeMs(ev.date, ev.endTime)
+        calendarRepository.insertEvent(calId, ev.title, ev.description, startMs, endMs)
+        _uiState.update { it.copy(memoFeedback = "📅 Evento aggiunto: ${ev.title}") }
+    }
+
+    private fun scheduleReminder(text: String, date: String, time: String) {
+        val triggerMs = calendarRepository.parseEventTimeMs(date, time)
+        val delayMs = triggerMs - System.currentTimeMillis()
+        if (delayMs <= 0) return
+        val data = Data.Builder()
+            .putString(ReminderWorker.KEY_TITLE, "Promemoria")
+            .putString(ReminderWorker.KEY_TEXT, text)
+            .build()
+        val request = OneTimeWorkRequestBuilder<ReminderWorker>()
+            .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+            .setInputData(data)
+            .build()
+        WorkManager.getInstance(context).enqueue(request)
+    }
+
+    private fun periodToRange(period: String): Pair<Long, Long> {
+        val cal = java.util.Calendar.getInstance()
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        cal.set(java.util.Calendar.MINUTE, 0)
+        cal.set(java.util.Calendar.SECOND, 0)
+        val start = cal.timeInMillis
+        return when (period) {
+            "domani" -> {
+                cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+                val s = cal.timeInMillis
+                cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+                Pair(s, cal.timeInMillis)
+            }
+            "settimana" -> {
+                cal.add(java.util.Calendar.DAY_OF_YEAR, 7)
+                Pair(start, cal.timeInMillis)
+            }
+            else -> { // oggi
+                cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+                Pair(start, cal.timeInMillis)
+            }
+        }
+    }
 
     // ── Voice mode ────────────────────────────────────────────────────────────
 

@@ -36,7 +36,11 @@ class ChatResponse(BaseModel):
     reply: str
     companion_id: str
     provider: str
-    fallback_used: bool = False    # True if a fallback provider was used
+    fallback_used: bool = False
+    memo_action: dict | None = None
+    calendar_action: dict | None = None
+    reminder_action: dict | None = None
+    calendar_read_request: dict | None = None
 
 
 class SummarizeRequest(BaseModel):

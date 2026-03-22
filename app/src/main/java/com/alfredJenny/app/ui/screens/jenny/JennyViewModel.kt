@@ -1,14 +1,21 @@
 package com.alfredJenny.app.ui.screens.jenny
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.Data
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import com.alfredJenny.app.data.local.ConversationEntity
 import com.alfredJenny.app.data.model.StreamEvent
 import com.alfredJenny.app.data.model.UserPreferences
 import com.alfredJenny.app.data.model.VoiceMode
+import com.alfredJenny.app.data.repository.CalendarRepository
 import com.alfredJenny.app.data.repository.ChatRepository
+import com.alfredJenny.app.data.repository.MemoRepository
 import com.alfredJenny.app.data.repository.PreferencesRepository
 import com.alfredJenny.app.data.repository.AuthRepository
+import com.alfredJenny.app.services.ReminderWorker
 import com.alfredJenny.app.services.SpeechInputService
 import com.alfredJenny.app.services.VoicePlaybackService
 import com.alfredJenny.app.ui.components.AlfredAvatarState
@@ -18,9 +25,11 @@ import com.alfredJenny.app.ui.components.JennyOutfit
 import com.alfredJenny.app.ui.components.OutfitDetector
 import com.alfredJenny.app.ui.components.OutfitManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 const val JENNY_SESSION_ID = "jenny_companion"
@@ -45,6 +54,9 @@ data class JennyUiState(
     val outfit: JennyOutfit = JennyOutfit.CASUAL,
     val eyeEmotion: EyeState = EyeState.OPEN,
     val outfitToast: String? = null,
+    val memoFeedback: String? = null,
+    val pendingCalendarEvent: StreamEvent.EventRequested? = null,
+    val calendarReadResult: String? = null,
 )
 
 @HiltViewModel
@@ -53,7 +65,10 @@ class JennyViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val authRepository: AuthRepository,
     private val voicePlaybackService: VoicePlaybackService,
-    private val speechInputService: SpeechInputService
+    private val speechInputService: SpeechInputService,
+    private val memoRepository: MemoRepository,
+    private val calendarRepository: CalendarRepository,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(JennyUiState())
@@ -199,6 +214,35 @@ class JennyViewModel @Inject constructor(
                     }
                     is StreamEvent.CommandExecuted -> { /* smart home commands not used in Jenny */ }
                     is StreamEvent.CommandFailed   -> { /* smart home commands not used in Jenny */ }
+                    is StreamEvent.MemoSaved -> {
+                        viewModelScope.launch {
+                            memoRepository.saveMemo(event.title, event.content, "jenny")
+                            _uiState.update { it.copy(memoFeedback = "📝 Nota salvata: ${event.title}") }
+                        }
+                    }
+                    is StreamEvent.EventRequested -> {
+                        if (prefs.calendarConfirmBeforeAdd) {
+                            _uiState.update { it.copy(pendingCalendarEvent = event) }
+                        } else {
+                            viewModelScope.launch { insertCalendarEvent(event) }
+                        }
+                    }
+                    is StreamEvent.ReminderScheduled -> {
+                        scheduleReminder(event.text, event.date, event.time)
+                        _uiState.update { it.copy(memoFeedback = "⏰ Promemoria: ${event.text}") }
+                    }
+                    is StreamEvent.CalendarRead -> {
+                        viewModelScope.launch {
+                            val calId = prefs.defaultCalendarId
+                            if (calId < 0L) {
+                                _uiState.update { it.copy(calendarReadResult = "Nessun calendario selezionato.") }
+                                return@launch
+                            }
+                            val (startMs, endMs) = periodToRange(event.period)
+                            val events = calendarRepository.getEvents(calId, startMs, endMs)
+                            _uiState.update { it.copy(calendarReadResult = calendarRepository.formatEventsForDisplay(events)) }
+                        }
+                    }
                 }
             }
         }
@@ -209,9 +253,68 @@ class JennyViewModel @Inject constructor(
         viewModelScope.launch { preferencesRepository.saveJennyOutfit(outfit.name) }
     }
 
-    fun dismissError()          = _uiState.update { it.copy(error = null, voiceError = null) }
-    fun dismissFallbackNotice() = _uiState.update { it.copy(fallbackNotice = null) }
-    fun dismissOutfitToast()    = _uiState.update { it.copy(outfitToast = null) }
+    fun dismissError()              = _uiState.update { it.copy(error = null, voiceError = null) }
+    fun dismissFallbackNotice()     = _uiState.update { it.copy(fallbackNotice = null) }
+    fun dismissOutfitToast()        = _uiState.update { it.copy(outfitToast = null) }
+    fun dismissMemoFeedback()       = _uiState.update { it.copy(memoFeedback = null) }
+    fun dismissCalendarReadResult() = _uiState.update { it.copy(calendarReadResult = null) }
+    fun confirmCalendarEvent() {
+        val ev = _uiState.value.pendingCalendarEvent ?: return
+        _uiState.update { it.copy(pendingCalendarEvent = null) }
+        viewModelScope.launch { insertCalendarEvent(ev) }
+    }
+    fun dismissCalendarEvent() = _uiState.update { it.copy(pendingCalendarEvent = null) }
+
+    private suspend fun insertCalendarEvent(ev: StreamEvent.EventRequested) {
+        val calId = prefs.defaultCalendarId
+        if (calId < 0L) {
+            _uiState.update { it.copy(memoFeedback = "⚠️ Seleziona un calendario nelle impostazioni") }
+            return
+        }
+        val startMs = calendarRepository.parseEventTimeMs(ev.date, ev.startTime)
+        val endMs   = calendarRepository.parseEventTimeMs(ev.date, ev.endTime)
+        calendarRepository.insertEvent(calId, ev.title, ev.description, startMs, endMs)
+        _uiState.update { it.copy(memoFeedback = "📅 Evento aggiunto: ${ev.title}") }
+    }
+
+    private fun scheduleReminder(text: String, date: String, time: String) {
+        val triggerMs = calendarRepository.parseEventTimeMs(date, time)
+        val delayMs = triggerMs - System.currentTimeMillis()
+        if (delayMs <= 0) return
+        val data = Data.Builder()
+            .putString(ReminderWorker.KEY_TITLE, "Promemoria")
+            .putString(ReminderWorker.KEY_TEXT, text)
+            .build()
+        val request = OneTimeWorkRequestBuilder<ReminderWorker>()
+            .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+            .setInputData(data)
+            .build()
+        WorkManager.getInstance(context).enqueue(request)
+    }
+
+    private fun periodToRange(period: String): Pair<Long, Long> {
+        val cal = java.util.Calendar.getInstance()
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        cal.set(java.util.Calendar.MINUTE, 0)
+        cal.set(java.util.Calendar.SECOND, 0)
+        val start = cal.timeInMillis
+        return when (period) {
+            "domani" -> {
+                cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+                val s = cal.timeInMillis
+                cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+                Pair(s, cal.timeInMillis)
+            }
+            "settimana" -> {
+                cal.add(java.util.Calendar.DAY_OF_YEAR, 7)
+                Pair(start, cal.timeInMillis)
+            }
+            else -> {
+                cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+                Pair(start, cal.timeInMillis)
+            }
+        }
+    }
 
     fun toggleVoice() {
         val enabled = !_uiState.value.voiceEnabled

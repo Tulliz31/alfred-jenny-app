@@ -107,14 +107,45 @@ data class SummarizeResponseDto(
 // ── SSE stream chunk ──────────────────────────────────────────────────────────
 
 @JsonClass(generateAdapter = true)
+data class MemoActionDto(
+    @Json(name = "title") val title: String,
+    @Json(name = "content") val content: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class CalendarEventActionDto(
+    @Json(name = "title") val title: String,
+    @Json(name = "date") val date: String,
+    @Json(name = "start_time") val startTime: String,
+    @Json(name = "end_time") val endTime: String,
+    @Json(name = "description") val description: String = "",
+)
+
+@JsonClass(generateAdapter = true)
+data class ReminderActionDto(
+    @Json(name = "text") val text: String,
+    @Json(name = "date") val date: String,
+    @Json(name = "time") val time: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class CalendarReadDto(
+    @Json(name = "period") val period: String,  // "oggi" | "domani" | "settimana"
+)
+
+@JsonClass(generateAdapter = true)
 data class StreamChunkDto(
     @Json(name = "c") val chunk: String? = null,
     @Json(name = "provider") val provider: String? = null,
     @Json(name = "fallback") val fallback: String? = null,
     @Json(name = "done") val done: Boolean = false,
     @Json(name = "error") val error: String? = null,
-    @Json(name = "cmd_ok") val cmdOk: String? = null,   // "device_name:action"
-    @Json(name = "cmd_err") val cmdErr: String? = null  // "device_name:error"
+    @Json(name = "cmd_ok") val cmdOk: String? = null,         // "device_name:action"
+    @Json(name = "cmd_err") val cmdErr: String? = null,       // "device_name:error"
+    @Json(name = "memo") val memo: MemoActionDto? = null,
+    @Json(name = "calendar_event") val calendarEvent: CalendarEventActionDto? = null,
+    @Json(name = "reminder") val reminder: ReminderActionDto? = null,
+    @Json(name = "calendar_read") val calendarRead: CalendarReadDto? = null,
 )
 
 // ── Companions ────────────────────────────────────────────────────────────────

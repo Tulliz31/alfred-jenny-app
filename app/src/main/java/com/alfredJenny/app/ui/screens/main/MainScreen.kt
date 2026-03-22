@@ -18,6 +18,7 @@ import androidx.lifecycle.viewModelScope
 import com.alfredJenny.app.data.repository.PreferencesRepository
 import com.alfredJenny.app.ui.screens.home.HomeScreen
 import com.alfredJenny.app.ui.screens.jenny.JennyScreen
+import com.alfredJenny.app.ui.screens.notes.NotesScreen
 import com.alfredJenny.app.ui.screens.smarthome.SmartHomeScreen
 import com.alfredJenny.app.ui.theme.*
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,9 +28,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
-private enum class MainTab { HOME, JENNY, SMART_HOME, SETTINGS }
+private enum class MainTab { HOME, JENNY, NOTES, SMART_HOME, SETTINGS }
 
-data class MainUiState(val jennyEnabled: Boolean = false, val smartHomeEnabled: Boolean = false)
+data class MainUiState(val jennyEnabled: Boolean = false, val smartHomeEnabled: Boolean = false, val notesEnabled: Boolean = true)
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -42,6 +43,10 @@ class MainViewModel @Inject constructor(
     val smartHomeEnabled: StateFlow<Boolean> = preferencesRepository.userPreferences
         .map { it.smartHomeEnabled }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val notesEnabled: StateFlow<Boolean> = preferencesRepository.userPreferences
+        .map { it.notesEnabled }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 }
 
 @Composable
@@ -51,6 +56,7 @@ fun MainScreen(
 ) {
     val jennyEnabled by viewModel.jennyEnabled.collectAsStateWithLifecycle()
     val smartHomeEnabled by viewModel.smartHomeEnabled.collectAsStateWithLifecycle()
+    val notesEnabled by viewModel.notesEnabled.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableStateOf(MainTab.HOME) }
 
     // If a feature gets disabled, go back to home
@@ -60,11 +66,14 @@ fun MainScreen(
     LaunchedEffect(smartHomeEnabled) {
         if (!smartHomeEnabled && selectedTab == MainTab.SMART_HOME) selectedTab = MainTab.HOME
     }
+    LaunchedEffect(notesEnabled) {
+        if (!notesEnabled && selectedTab == MainTab.NOTES) selectedTab = MainTab.HOME
+    }
 
     Scaffold(
         containerColor = Background,
         bottomBar = {
-            val showBar = jennyEnabled || smartHomeEnabled
+            val showBar = jennyEnabled || smartHomeEnabled || notesEnabled
             if (showBar) {
                 NavigationBar(containerColor = Surface, contentColor = OnBackground) {
                     NavigationBarItem(
@@ -92,6 +101,23 @@ fun MainScreen(
                                 selectedIconColor = JennyPurpleLight,
                                 selectedTextColor = JennyPurpleLight,
                                 indicatorColor = JennyPurple.copy(alpha = 0.2f),
+                                unselectedIconColor = OnSurfaceVariant,
+                                unselectedTextColor = OnSurfaceVariant
+                            )
+                        )
+                    }
+                    if (notesEnabled) {
+                        NavigationBarItem(
+                            icon = {
+                                Text("📝", style = MaterialTheme.typography.titleMedium)
+                            },
+                            label = { Text("Note") },
+                            selected = selectedTab == MainTab.NOTES,
+                            onClick = { selectedTab = MainTab.NOTES },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Color(0xFF66BB6A),
+                                selectedTextColor = Color(0xFF66BB6A),
+                                indicatorColor = Color(0xFF66BB6A).copy(alpha = 0.2f),
                                 unselectedIconColor = OnSurfaceVariant,
                                 unselectedTextColor = OnSurfaceVariant
                             )
@@ -130,6 +156,7 @@ fun MainScreen(
             when (selectedTab) {
                 MainTab.HOME       -> HomeScreen(onOpenSettings = onOpenSettings)
                 MainTab.JENNY      -> JennyScreen()
+                MainTab.NOTES      -> NotesScreen()
                 MainTab.SMART_HOME -> SmartHomeScreen(onOpenSettings = onOpenSettings)
                 MainTab.SETTINGS   -> { /* handled via onOpenSettings */ }
             }

@@ -510,6 +510,58 @@ private fun GeneraleSection(state: SettingsUiState, viewModel: SettingsViewModel
             colors = SwitchDefaults.colors(checkedTrackColor = AlfredBlue, checkedThumbColor = AlfredBlueLight)
         )
     }
+    HorizontalDivider(color = SurfaceVariant)
+    SectionLabel("Note & Calendario")
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Abilita Note", color = OnBackground, fontWeight = FontWeight.Medium)
+            Text("Mostra il tab Note nella barra di navigazione", style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+        }
+        Switch(
+            checked = state.preferences.notesEnabled,
+            onCheckedChange = viewModel::onNotesEnabledChange,
+            colors = SwitchDefaults.colors(checkedTrackColor = AlfredBlue, checkedThumbColor = AlfredBlueLight)
+        )
+    }
+    if (state.availableCalendars.isNotEmpty()) {
+        Spacer(Modifier.height(8.dp))
+        Text("Calendario predefinito", color = OnBackground, fontWeight = FontWeight.Medium)
+        Text("Il calendario dove Alfred e Jenny aggiungono gli eventi",
+            style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+        Spacer(Modifier.height(4.dp))
+        var calExpanded by remember { mutableStateOf(false) }
+        val selectedCal = state.availableCalendars.find { it.id == state.preferences.defaultCalendarId }
+        ExposedDropdownMenuBox(expanded = calExpanded, onExpandedChange = { calExpanded = it }) {
+            OutlinedTextField(
+                value = selectedCal?.name ?: "Seleziona calendario",
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = calExpanded) },
+                colors = outlinedColors(),
+            )
+            ExposedDropdownMenu(expanded = calExpanded, onDismissRequest = { calExpanded = false }) {
+                state.availableCalendars.forEach { cal ->
+                    DropdownMenuItem(
+                        text = { Text(cal.name) },
+                        onClick = { viewModel.onDefaultCalendarIdChange(cal.id); calExpanded = false },
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Chiedi conferma", color = OnBackground, fontWeight = FontWeight.Medium)
+                Text("Mostra un dialogo prima di aggiungere un evento", style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+            }
+            Switch(
+                checked = state.preferences.calendarConfirmBeforeAdd,
+                onCheckedChange = viewModel::onCalendarConfirmChange,
+                colors = SwitchDefaults.colors(checkedTrackColor = AlfredBlue, checkedThumbColor = AlfredBlueLight)
+            )
+        }
+    }
     SaveButton(viewModel)
 }
 

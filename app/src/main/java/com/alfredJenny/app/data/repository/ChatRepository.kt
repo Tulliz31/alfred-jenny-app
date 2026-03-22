@@ -176,6 +176,36 @@ class ChatRepository @Inject constructor(
                             val err = parts.getOrElse(1) { "errore" }
                             trySend(StreamEvent.CommandFailed(name, err))
                         }
+                        json.has("memo") -> {
+                            val m = json.getJSONObject("memo")
+                            trySend(StreamEvent.MemoSaved(
+                                title = m.optString("title"),
+                                content = m.optString("content"),
+                                companion = "",  // filled by ViewModel with current companionId
+                            ))
+                        }
+                        json.has("calendar_event") -> {
+                            val ev = json.getJSONObject("calendar_event")
+                            trySend(StreamEvent.EventRequested(
+                                title = ev.optString("title"),
+                                date = ev.optString("date"),
+                                startTime = ev.optString("start_time"),
+                                endTime = ev.optString("end_time"),
+                                description = ev.optString("description"),
+                            ))
+                        }
+                        json.has("reminder") -> {
+                            val r = json.getJSONObject("reminder")
+                            trySend(StreamEvent.ReminderScheduled(
+                                text = r.optString("text"),
+                                date = r.optString("date"),
+                                time = r.optString("time"),
+                            ))
+                        }
+                        json.has("calendar_read") -> {
+                            val cr = json.getJSONObject("calendar_read")
+                            trySend(StreamEvent.CalendarRead(period = cr.optString("period", "oggi")))
+                        }
                         json.has("c") -> {
                             val chunk = json.getString("c")
                             if (chunk.isNotEmpty()) {

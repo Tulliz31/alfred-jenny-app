@@ -12,6 +12,8 @@ import com.alfredJenny.app.ui.components.JennyOutfit
 import com.alfredJenny.app.data.remote.DEFAULT_BASE_URL
 import com.alfredJenny.app.data.remote.TokenStore
 import com.alfredJenny.app.data.repository.AuthRepository
+import com.alfredJenny.app.data.repository.CalendarRepository
+import com.alfredJenny.app.data.repository.CalendarInfo
 import com.alfredJenny.app.data.repository.ChatRepository
 import com.alfredJenny.app.data.repository.PreferencesRepository
 import com.alfredJenny.app.data.repository.SmartHomeRepository
@@ -70,6 +72,8 @@ data class SettingsUiState(
     val isLoadingLog: Boolean = false,
     val logError: String? = null,
     val showActivityLog: Boolean = false,
+    // Calendar
+    val availableCalendars: List<CalendarInfo> = emptyList(),
 )
 
 @HiltViewModel
@@ -79,6 +83,7 @@ class SettingsViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val tokenStore: TokenStore,
     private val smartHomeRepository: SmartHomeRepository,
+    private val calendarRepository: CalendarRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -91,6 +96,7 @@ class SettingsViewModel @Inject constructor(
             }
         }
         loadProviders()
+        loadCalendars()
     }
 
     // ── Standard settings ─────────────────────────────────────────────────────
@@ -301,6 +307,17 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // ── Notes & Calendar ──────────────────────────────────────────────────────
+
+    fun onNotesEnabledChange(enabled: Boolean)       { update { copy(notesEnabled = enabled) } }
+    fun onDefaultCalendarIdChange(id: Long)          { update { copy(defaultCalendarId = id) } }
+    fun onCalendarConfirmChange(confirm: Boolean)    { update { copy(calendarConfirmBeforeAdd = confirm) } }
+
+    fun loadCalendars() {
+        val calendars = calendarRepository.getAvailableCalendars()
+        _uiState.update { it.copy(availableCalendars = calendars) }
+    }
+
     // ── Theme ─────────────────────────────────────────────────────────────────
 
     fun toggleLightTheme(enabled: Boolean) {
@@ -481,6 +498,9 @@ class SettingsViewModel @Inject constructor(
             preferencesRepository.saveTuyaRegion(p.tuyaRegion)
             preferencesRepository.saveJennyAutoOutfit(p.jennyAutoOutfit)
             preferencesRepository.saveLightTheme(p.lightTheme)
+            preferencesRepository.saveNotesEnabled(p.notesEnabled)
+            preferencesRepository.saveDefaultCalendarId(p.defaultCalendarId)
+            preferencesRepository.saveCalendarConfirm(p.calendarConfirmBeforeAdd)
             _uiState.update { it.copy(isSaved = true) }
         }
     }

@@ -89,4 +89,9 @@ dependencies {
 
     // Coil (asset PNG sprite loading)
     implementation(libs.coil.compose)
+
+    // WorkManager (scheduled reminders)
+    implementation(libs.work.runtime.ktx)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.compiler.work)
 }

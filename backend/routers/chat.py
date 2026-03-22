@@ -16,10 +16,62 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 _CMD_PATTERN = re.compile(r"\[CMD:([^:\]\s]+):([^:\]\s]+)(?::([^\]\s]+))?\]")
 
+# ── Action tag patterns ──────────────────────────────────────────────────────
+
+_MEMO_PATTERN     = re.compile(r"\[MEMO:([^\]|]+)\|([^\]]*)\]")
+_EVENT_PATTERN    = re.compile(r"\[EVENT:([^\]|]+)\|([^\]|]+)\|([^\]|]+)\|([^\]|]+)\|([^\]]*)\]")
+_REMINDER_PATTERN = re.compile(r"\[REMINDER:([^\]|]+)\|([^\]|]+)\|([^\]|]+)\]")
+_CALENDAR_PATTERN = re.compile(r"\[READ_CALENDAR:(oggi|domani|settimana)\]")
+
+
+def _strip_action_tags(text: str) -> str:
+    """Remove [MEMO:...], [EVENT:...], [REMINDER:...], [READ_CALENDAR:...] from visible text."""
+    text = _MEMO_PATTERN.sub("", text)
+    text = _EVENT_PATTERN.sub("", text)
+    text = _REMINDER_PATTERN.sub("", text)
+    text = _CALENDAR_PATTERN.sub("", text)
+    return text.strip()
+
+
+def _extract_actions(text: str) -> dict:
+    """Extract memo/calendar/reminder/calendar_read actions from AI response text."""
+    memo_match = _MEMO_PATTERN.search(text)
+    event_match = _EVENT_PATTERN.search(text)
+    reminder_match = _REMINDER_PATTERN.search(text)
+    calendar_match = _CALENDAR_PATTERN.search(text)
+
+    result = {}
+    if memo_match:
+        result["memo"] = {
+            "title": memo_match.group(1).strip(),
+            "content": memo_match.group(2).strip(),
+        }
+    if event_match:
+        result["calendar_event"] = {
+            "title": event_match.group(1).strip(),
+            "date": event_match.group(2).strip(),
+            "start_time": event_match.group(3).strip(),
+            "end_time": event_match.group(4).strip(),
+            "description": event_match.group(5).strip(),
+        }
+    if reminder_match:
+        result["reminder"] = {
+            "text": reminder_match.group(1).strip(),
+            "date": reminder_match.group(2).strip(),
+            "time": reminder_match.group(3).strip(),
+        }
+    if calendar_match:
+        result["calendar_read"] = {
+            "period": calendar_match.group(1),
+        }
+    return result
+
 
 def _strip_cmd(text: str) -> str:
-    """Remove [CMD:...] markers from the visible reply."""
-    return _CMD_PATTERN.sub("", text).strip()
+    """Remove [CMD:...] and action tag markers from the visible reply."""
+    text = _CMD_PATTERN.sub("", text)
+    text = _strip_action_tags(text)
+    return text.strip()
 
 
 async def _execute_commands(
@@ -144,11 +196,16 @@ async def send_message(body: ChatRequest, current_user: UserInDB = Depends(get_c
         reply = raw_reply
         provider_label = provider_enum.value
     cmd_results = await _execute_commands(reply)
+    actions = _extract_actions(reply)
     return ChatResponse(
         reply=_strip_cmd(reply),
         companion_id=companion.id,
         provider=provider_label,
         fallback_used=fallback_used,
+        memo_action=actions.get("memo"),
+        calendar_action=actions.get("calendar_event"),
+        reminder_action=actions.get("reminder"),
+        calendar_read_request=actions.get("calendar_read"),
     )
 
 
@@ -188,9 +245,10 @@ async def stream_message(body: ChatRequest, current_user: UserInDB = Depends(get
                     pid = token[len("\x00FALLBACK:"):]
                     yield f"data: {json.dumps({'fallback': pid})}\n\n"
                 else:
-                    # Strip [CMD:...] markers from the visible stream
+                    # Strip [CMD:...] and action tag markers from the visible stream
                     clean = _CMD_PATTERN.sub("", token)
-                    full_text.append(token)  # keep raw for command detection
+                    clean = _strip_action_tags(clean)
+                    full_text.append(token)  # keep raw for command/action detection
                     if clean:
                         yield f"data: {json.dumps({'c': clean})}\n\n"
 
@@ -202,6 +260,17 @@ async def stream_message(body: ChatRequest, current_user: UserInDB = Depends(get
                     yield f"data: {json.dumps({'cmd_ok': f'{name}:{action}'})}\n\n"
                 else:
                     yield f"data: {json.dumps({'cmd_err': f'{name}:{msg or action}'})}\n\n"
+
+            # Extract and emit action tags
+            actions = _extract_actions(full_raw)
+            if "memo" in actions:
+                yield f"data: {json.dumps({'memo': actions['memo']})}\n\n"
+            if "calendar_event" in actions:
+                yield f"data: {json.dumps({'calendar_event': actions['calendar_event']})}\n\n"
+            if "reminder" in actions:
+                yield f"data: {json.dumps({'reminder': actions['reminder']})}\n\n"
+            if "calendar_read" in actions:
+                yield f"data: {json.dumps({'calendar_read': actions['calendar_read']})}\n\n"
 
             yield f"data: {json.dumps({'done': True})}\n\n"
         except HTTPException as e:
