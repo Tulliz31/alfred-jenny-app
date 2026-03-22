@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.alfredJenny.app.ui.theme.*
+import java.io.File
 import kotlinx.coroutines.delay
 
 // ── Sprite config ─────────────────────────────────────────────────────────────
@@ -223,9 +224,10 @@ fun AlfredAvatarView(
                     }
                 },
         ) { fileName ->
+            val alfredFile = remember(fileName) { File(context.filesDir, "avatars/alfred/$fileName") }
             AsyncImage(
                 model = ImageRequest.Builder(context)
-                    .data("file:///android_asset/alfred/$fileName")
+                    .data(if (alfredFile.exists()) alfredFile else "file:///android_asset/alfred/$fileName")
                     .crossfade(false)
                     .build(),
                 contentDescription = "Alfred - $state",

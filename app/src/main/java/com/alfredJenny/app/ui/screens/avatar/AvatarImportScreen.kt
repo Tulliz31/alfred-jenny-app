@@ -92,7 +92,7 @@ fun AvatarManagerScreen(
 
         Box(modifier = Modifier.weight(1f)) {
             when (selectedTab) {
-                0 -> AlfredAvatarTab()
+                0 -> AlfredAvatarTab(state = state, viewModel = viewModel)
                 1 -> JennyAvatarTab(state = state, viewModel = viewModel)
             }
         }
@@ -120,68 +120,155 @@ fun AvatarManagerScreen(
 // ── Alfred tab ────────────────────────────────────────────────────────────────
 
 @Composable
-private fun AlfredAvatarTab() {
+private fun AlfredAvatarTab(
+    state: AvatarManagerUiState,
+    viewModel: AvatarManagerViewModel,
+) {
+    var pendingFilename by remember { mutableStateOf<String?>(null) }
+
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        pendingFilename?.let { viewModel.importAlfredFile(it, uri) }
+        pendingFilename = null
+    }
+
+    if (state.isLoading) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = AlfredBlueLight)
+        }
+        return
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
+        // Info card
         Surface(
             shape = RoundedCornerShape(12.dp),
             color = AlfredBlue.copy(alpha = 0.12f),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(14.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(Icons.Default.AutoAwesome, contentDescription = null,
-                    tint = AlfredBlueLight, modifier = Modifier.size(32.dp))
+                    tint = AlfredBlueLight, modifier = Modifier.size(28.dp))
                 Column {
-                    Text("Avatar geometrico animato", color = OnBackground,
-                        fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                    Text("Alfred usa un avatar vettoriale generato via Compose Animations.",
+                    Text("Sprite PNG animati", color = OnBackground,
+                        fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Importa PNG 512×512 trasparente per personalizzare i frame.",
                         color = OnSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
+        // Sprite groups
+        val groupOrder = listOf("IDLE", "TALKING", "THINKING", "LISTENING")
+        groupOrder.forEach { group ->
+            val slots = state.alfredSpriteSlots[group] ?: return@forEach
+            HorizontalDivider(color = SurfaceVariant)
+            Text(
+                group,
+                fontWeight = FontWeight.SemiBold,
+                color = AlfredBlueLight,
+                fontSize = 15.sp
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                slots.forEach { slot ->
+                    AlfredSlotRow(
+                        slot = slot,
+                        onImport = {
+                            pendingFilename = slot.filename
+                            launcher.launch("image/*")
+                        },
+                        onRemove = { viewModel.removeAlfredFile(slot.filename) },
+                    )
                 }
             }
         }
 
         HorizontalDivider(color = SurfaceVariant)
 
-        Text("Come personalizzare Alfred", fontWeight = FontWeight.SemiBold,
-            color = AlfredBlueLight, fontSize = 15.sp)
+        // Reset button
+        val hasAnyCustom = state.alfredSpriteSlots.values.flatten().any { it.hasFilesDir }
+        if (hasAnyCustom) {
+            OutlinedButton(
+                onClick = { viewModel.resetAllAlfred() },
+                modifier = Modifier.fillMaxWidth(),
+                border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRed),
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = null,
+                    tint = ErrorRed, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Ripristina sprite default", color = ErrorRed)
+            }
+        }
 
-        AlfredInstructionCard(
-            step = "1", title = "Prepara le immagini",
-            body = "Crea file SVG o PNG di 200×200 px per ciascuno stato e frame.\n" +
-                   "I file devono avere gli stessi nomi dei drawable correnti."
-        )
-        AlfredInstructionCard(
-            step = "2", title = "Nomi file richiesti",
-            body = "IDLE (4 frame): alfred_idle_000 … alfred_idle_003\n" +
-                   "TALKING (4 frame): alfred_talking_000 … alfred_talking_003\n" +
-                   "THINKING (3 frame): alfred_thinking_000 … alfred_thinking_002\n" +
-                   "LISTENING (3 frame): alfred_listening_000 … alfred_listening_002"
-        )
-        AlfredInstructionCard(
-            step = "3", title = "Copia nella cartella drawable",
-            body = "Sostituisci i file in app/src/main/res/drawable/ e lancia un rebuild."
-        )
+        Spacer(Modifier.height(16.dp))
+    }
+}
 
-        HorizontalDivider(color = SurfaceVariant)
-
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = SurfaceVariant,
-            modifier = Modifier.fillMaxWidth()
+@Composable
+private fun AlfredSlotRow(
+    slot: AvatarSlot,
+    onImport: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = if (slot.hasFilesDir) AlfredBlue.copy(alpha = 0.1f) else SurfaceVariant,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                FormatRow("Formato consigliato", "Android Vector Drawable (.xml)")
-                FormatRow("Viewport", "200 × 200")
-                FormatRow("Sfondo", "Trasparente o cerchio #1a3a5c")
+            // Thumbnail
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(SurfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                if (slot.thumbnail != null) {
+                    Image(
+                        bitmap = slot.thumbnail,
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(Icons.Default.Person, contentDescription = null,
+                        tint = OnSurfaceVariant, modifier = Modifier.size(28.dp))
+                }
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(slot.label, color = OnBackground, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                Text(
+                    text = if (slot.hasFilesDir) "Personalizzato" else "Default (asset)",
+                    color = if (slot.hasFilesDir) SuccessGreen else AlfredBlueLight,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+
+            IconButton(onClick = onImport, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.FileUpload, contentDescription = "Importa",
+                    tint = AlfredBlueLight, modifier = Modifier.size(20.dp))
+            }
+            if (slot.hasFilesDir) {
+                IconButton(onClick = onRemove, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = "Rimuovi",
+                        tint = ErrorRed, modifier = Modifier.size(20.dp))
+                }
             }
         }
     }
@@ -475,29 +562,3 @@ private fun ThumbnailBox(bitmap: ImageBitmap?, hasContent: Boolean) {
     }
 }
 
-@Composable
-private fun AlfredInstructionCard(step: String, title: String, body: String) {
-    Surface(shape = RoundedCornerShape(12.dp), color = SurfaceVariant, modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(shape = RoundedCornerShape(8.dp), color = AlfredBlue, modifier = Modifier.size(32.dp)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(step, color = OnBackground, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                }
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(title, fontWeight = FontWeight.SemiBold, color = OnBackground, fontSize = 14.sp)
-                Text(body, color = OnSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            }
-        }
-    }
-}
-
-@Composable
-private fun FormatRow(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        Text(label, color = OnSurfaceVariant, style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.weight(1f))
-        Text(value, color = OnBackground, style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Medium)
-    }
-}

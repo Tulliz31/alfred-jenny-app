@@ -1,11 +1,11 @@
 package com.alfredJenny.app.ui.components
 
 import android.content.Context
-import android.graphics.BitmapFactory
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.util.Log
 import java.io.File
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.*
@@ -23,45 +23,60 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.alfredJenny.app.ui.theme.*
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
-// ── Bitmap loader ─────────────────────────────────────────────────────────────
+// ── Image loader (Coil) ───────────────────────────────────────────────────────
 
 /**
- * Loads an ImageBitmap from the app's assets folder on IO dispatcher.
- * Returns null while loading or on error.
- * Result is remembered per [assetPath] + [sampleSize].
+ * Returns a Coil [Painter] for a Jenny asset file.
+ * Priority: filesDir/avatars/jenny/ → assets/jenny/
+ * Uses Coil so format issues are handled natively; cross-fade 150 ms.
  */
+@Composable
+fun jennyImage(filename: String, crossfadeMs: Int = 150): Painter {
+    val context = LocalContext.current
+    val userFile = File(context.filesDir, "avatars/jenny/$filename")
+    val dataSource: Any = if (userFile.exists()) userFile
+                          else "file:///android_asset/jenny/$filename"
+    return rememberAsyncImagePainter(
+        model = ImageRequest.Builder(context)
+            .data(dataSource)
+            .crossfade(crossfadeMs)
+            .build()
+    )
+}
+
+/** Kept for backward compatibility with AvatarManagerScreen thumbnails. */
 @Composable
 fun rememberAssetBitmap(assetPath: String, sampleSize: Int = 1): ImageBitmap? {
     val context = LocalContext.current
     var bitmap by remember(assetPath, sampleSize) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(assetPath, sampleSize) {
-        bitmap = withContext(Dispatchers.IO) {
-            val opts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-            // filesDir takes priority over bundled assets
+        bitmap = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sampleSize }
             val override = File(context.filesDir, "avatars/jenny/$assetPath")
             if (override.exists()) {
                 runCatching {
-                    override.inputStream().use { BitmapFactory.decodeStream(it, null, opts)?.asImageBitmap() }
+                    override.inputStream().use { android.graphics.BitmapFactory.decodeStream(it, null, opts)?.asImageBitmap() }
                 }.getOrNull()
             } else {
                 runCatching {
                     context.assets.open("jenny/$assetPath").use { stream ->
-                        BitmapFactory.decodeStream(stream, null, opts)?.asImageBitmap()
+                        android.graphics.BitmapFactory.decodeStream(stream, null, opts)?.asImageBitmap()
                     }
                 }.getOrNull()
             }
@@ -172,33 +187,17 @@ fun JennyAvatarView(
         MouthState.SMILE
     }
 
-    // ── Bitmap preloading ─────────────────────────────────────────────────────
-    // Body — all outfits preloaded upfront so Crossfade(300ms) has both bitmaps ready
-    val bodyBitmaps = remember { mutableStateMapOf<JennyOutfit, ImageBitmap>() }
+    // ── Coil painters (filesDir → assets, handled automatically) ──────────────
+    // Each painter is keyed to the current state; Coil handles caching.
+    val bodyPainter   = jennyImage(outfit.assetFile, crossfadeMs = 300)
+    val eyePainter    = jennyImage(effectiveEyeState.assetFile, crossfadeMs = 150)
+    val mouthPainter  = jennyImage(mouthState.assetFile, crossfadeMs = 80)
+
+    // Log available asset files once at startup for debug purposes
     LaunchedEffect(Unit) {
-        JennyOutfit.values().forEach { o ->
-            val bmp = withContext(Dispatchers.IO) {
-                // filesDir overrides bundled assets
-                val override = File(context.filesDir, "avatars/jenny/${o.assetFile}")
-                if (override.exists()) {
-                    runCatching { override.inputStream().use { BitmapFactory.decodeStream(it)?.asImageBitmap() } }.getOrNull()
-                } else {
-                    runCatching {
-                        context.assets.open("jenny/${o.assetFile}").use { s ->
-                            BitmapFactory.decodeStream(s)?.asImageBitmap()
-                        }
-                    }.getOrNull()
-                }
-            }
-            if (bmp != null) bodyBitmaps[o] = bmp
-        }
+        val files = runCatching { context.assets.list("jenny") ?: emptyArray() }.getOrDefault(emptyArray())
+        Log.d("JENNY", "Asset files in jenny/: ${files.toList()}")
     }
-
-    // Eyes — preloaded for current effective state (Crossfade handles transitions)
-    val eyeBitmap = rememberAssetBitmap(effectiveEyeState.assetFile)
-
-    // Mouth — current state
-    val mouthBitmap = rememberAssetBitmap(mouthState.assetFile)
 
     // ── Layout ────────────────────────────────────────────────────────────────
     Column(modifier = modifier) {
@@ -213,87 +212,76 @@ fun JennyAvatarView(
             val bW = maxWidth
             val bH = maxHeight
 
-            // Layer 1 — Body (glow + breathing + react) — Crossfade 300ms on outfit change
-            Crossfade(
-                targetState = outfit,
-                animationSpec = tween(300),
-                label = "bodyOutfit"
-            ) { currentOutfit ->
-                bodyBitmaps[currentOutfit]?.let { bmp ->
-                    Image(
-                        bitmap = bmp,
-                        contentDescription = "Jenny",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .jennyBodyGlow()
-                            .graphicsLayer {
-                                translationX = parallaxX.value * 0.08f
-                                translationY = breathOffset + parallaxY.value * 0.04f
-                                scaleX = reactScale.value
-                                scaleY = reactScale.value
-                            }
-                    )
-                }
-            }
+            // Layer 1 — Body (glow + breathing + react)
+            Image(
+                painter = bodyPainter,
+                contentDescription = "Jenny",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .jennyBodyGlow()
+                    .graphicsLayer {
+                        translationX = parallaxX.value * 0.08f
+                        translationY = breathOffset + parallaxY.value * 0.04f
+                        scaleX = reactScale.value
+                        scaleY = reactScale.value
+                    }
+            )
 
             // Layer 2 — Eyes (Crossfade 150 ms between states)
-            eyeBitmap?.let { bmp ->
-                val eyeW = bW * 0.54f
-                val eyeH = eyeW * (bmp.height.toFloat() / bmp.width.toFloat())
-                Crossfade(
-                    targetState = bmp,
-                    animationSpec = tween(150),
-                    label = "eyes",
-                    modifier = Modifier
-                        .size(eyeW, eyeH)
-                        .align(Alignment.TopCenter)
-                        .offset(
-                            x = (parallaxX.value * 0.14f).dp,
-                            y = (bH * 0.35f) - (eyeH / 2) + (breathOffset + parallaxY.value * 0.08f).dp
-                        )
-                        .graphicsLayer {
-                            scaleX = reactScale.value
-                            scaleY = reactScale.value
-                        }
-                ) { b ->
-                    Image(
-                        bitmap = b,
-                        contentDescription = null,
-                        contentScale = ContentScale.FillBounds,
-                        modifier = Modifier.fillMaxSize()
+            // Fixed proportional size: 54% wide, ~22% tall (typical eyes aspect)
+            val eyeW = bW * 0.54f
+            val eyeH = eyeW * 0.40f
+            Crossfade(
+                targetState = effectiveEyeState,
+                animationSpec = tween(150),
+                label = "eyes",
+                modifier = Modifier
+                    .size(eyeW, eyeH)
+                    .align(Alignment.TopCenter)
+                    .offset(
+                        x = (parallaxX.value * 0.14f).dp,
+                        y = (bH * 0.35f) - (eyeH / 2) + (breathOffset + parallaxY.value * 0.08f).dp
                     )
-                }
+                    .graphicsLayer {
+                        scaleX = reactScale.value
+                        scaleY = reactScale.value
+                    }
+            ) { _ ->
+                Image(
+                    painter = eyePainter,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
 
-            // Layer 3 — Mouth (120 ms lip-sync cycle)
-            mouthBitmap?.let { bmp ->
-                val mW = bW * 0.38f
-                val mH = mW * (bmp.height.toFloat() / bmp.width.toFloat())
-                Crossfade(
-                    targetState = bmp,
-                    animationSpec = tween(80),
-                    label = "mouth",
-                    modifier = Modifier
-                        .size(mW, mH)
-                        .align(Alignment.TopCenter)
-                        .offset(
-                            x = (parallaxX.value * 0.10f).dp,
-                            y = (bH * 0.52f) - (mH / 2) + (breathOffset + parallaxY.value * 0.06f).dp
-                        )
-                        .graphicsLayer {
-                            scaleX = reactScale.value
-                            scaleY = reactScale.value * if (state == AlfredAvatarState.TALKING)
-                                0.85f + audioAmplitude * 0.35f else 1f
-                        }
-                ) { b ->
-                    Image(
-                        bitmap = b,
-                        contentDescription = null,
-                        contentScale = ContentScale.FillBounds,
-                        modifier = Modifier.fillMaxSize()
+            // Layer 3 — Mouth (80 ms lip-sync cycle)
+            val mW = bW * 0.38f
+            val mH = mW * 0.38f
+            Crossfade(
+                targetState = mouthState,
+                animationSpec = tween(80),
+                label = "mouth",
+                modifier = Modifier
+                    .size(mW, mH)
+                    .align(Alignment.TopCenter)
+                    .offset(
+                        x = (parallaxX.value * 0.10f).dp,
+                        y = (bH * 0.52f) - (mH / 2) + (breathOffset + parallaxY.value * 0.06f).dp
                     )
-                }
+                    .graphicsLayer {
+                        scaleX = reactScale.value
+                        scaleY = reactScale.value * if (state == AlfredAvatarState.TALKING)
+                            0.85f + audioAmplitude * 0.35f else 1f
+                    }
+            ) { _ ->
+                Image(
+                    painter = mouthPainter,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
 
             // Layer 4 — Floating stars
@@ -335,7 +323,7 @@ fun JennyOutfitBar(
                 val f = File(context.filesDir, "avatars/jenny/${o.assetFile}")
                 if (!f.exists()) return@forEach
             }
-            val thumb = rememberAssetBitmap(o.assetFile, sampleSize = 4)
+            val thumb = jennyImage(o.assetFile, crossfadeMs = 0)
             val isActive = (o == currentOutfit)
             val displayLabel = if (o in JennyOutfit.custom()) {
                 val idx = JennyOutfit.custom().indexOf(o)
@@ -356,14 +344,12 @@ fun JennyOutfitBar(
                     .clickable { onSelect(o) },
                 contentAlignment = Alignment.Center
             ) {
-                if (thumb != null) {
-                    Image(
-                        bitmap = thumb,
-                        contentDescription = displayLabel,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
+                Image(
+                    painter = thumb,
+                    contentDescription = displayLabel,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize()
+                )
                 // Label at bottom
                 Box(
                     modifier = Modifier

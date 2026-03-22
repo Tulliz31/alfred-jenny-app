@@ -33,6 +33,7 @@ data class CustomOutfitSlot(
 )
 
 data class AvatarManagerUiState(
+    val alfredSpriteSlots: Map<String, List<AvatarSlot>> = emptyMap(), // key = "IDLE"|"TALKING"|"THINKING"|"LISTENING"
     val jennyBodySlots: List<AvatarSlot> = emptyList(),
     val jennyEyeSlots: List<AvatarSlot> = emptyList(),
     val jennyMouthSlots: List<AvatarSlot> = emptyList(),
@@ -57,6 +58,25 @@ class AvatarManagerViewModel @Inject constructor(
     fun loadSlots() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
+
+            // Alfred sprite groups
+            val alfredGroups = linkedMapOf<String, List<String>>(
+                "IDLE"      to listOf("alfred_idle_000.png","alfred_idle_001.png","alfred_idle_002.png","alfred_idle_003.png"),
+                "TALKING"   to listOf("alfred_talking_000.png","alfred_talking_001.png","alfred_talking_002.png","alfred_talking_003.png"),
+                "THINKING"  to listOf("alfred_thinking_000.png","alfred_thinking_001.png","alfred_thinking_002.png"),
+                "LISTENING" to listOf("alfred_listening_000.png","alfred_listening_001.png","alfred_listening_002.png"),
+            )
+            val alfredSlots = alfredGroups.mapValues { (_, files) ->
+                files.map { filename ->
+                    AvatarSlot(
+                        filename = filename,
+                        label = filename.removePrefix("alfred_").removeSuffix(".png"),
+                        hasFilesDir = avatarRepository.alfredFileExists(filename),
+                        hasAssets = true, // Alfred sprites are always bundled as assets
+                        thumbnail = avatarRepository.loadAlfredThumbnail(filename),
+                    )
+                }
+            }
 
             val bodySlots = JennyOutfit.builtIn().map { outfit ->
                 AvatarSlot(
@@ -104,12 +124,43 @@ class AvatarManagerViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     isLoading = false,
+                    alfredSpriteSlots = alfredSlots,
                     jennyBodySlots = bodySlots,
                     jennyEyeSlots = eyeSlots,
                     jennyMouthSlots = mouthSlots,
                     customOutfits = customSlots,
                 )
             }
+        }
+    }
+
+    fun importAlfredFile(filename: String, uri: Uri) {
+        viewModelScope.launch {
+            val ok = avatarRepository.saveAlfredImage(filename, uri)
+            _uiState.update {
+                it.copy(feedback = if (ok) "✅ Importato: $filename" else "❌ Errore importazione")
+            }
+            loadSlots()
+        }
+    }
+
+    fun removeAlfredFile(filename: String) {
+        viewModelScope.launch {
+            avatarRepository.removeAlfredImage(filename)
+            _uiState.update { it.copy(feedback = "Rimosso: $filename") }
+            loadSlots()
+        }
+    }
+
+    fun resetAllAlfred() {
+        viewModelScope.launch {
+            listOf("IDLE","TALKING","THINKING","LISTENING").forEach { group ->
+                _uiState.value.alfredSpriteSlots[group]?.forEach { slot ->
+                    if (slot.hasFilesDir) avatarRepository.removeAlfredImage(slot.filename)
+                }
+            }
+            _uiState.update { it.copy(feedback = "Alfred ripristinato ai default") }
+            loadSlots()
         }
     }
 
